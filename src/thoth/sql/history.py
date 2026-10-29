@@ -3,7 +3,8 @@
 It lives in the database, not the app, so no code path can skip it - not a buggy endpoint, not a script, not
 psql. The app passes who and why per transaction with `thoth.db.write_as`, which sets two settings these functions
 read: `thoth.actor` and `thoth.reason`. Deleting needs a third, `thoth.purge = on`, which only Charon's yearly
-purge sets. Only a writer with the verdict flag (Anubis) may set status retired (D53, D56).
+purge sets. Only a writer with the verdict flag (Anubis) may set status retired (D53, D56). The running app's
+role can't write history at all (D58) - only this function, as the tables' owner, adds versions.
 """
 
 from alembic_utils.pg_function import PGFunction
@@ -12,11 +13,13 @@ from alembic_utils.pg_trigger import PGTrigger
 # Columns that change without the thing changing: scans bump last_seen, and the stamp is ours.
 _NOT_A_CHANGE = "array['last_seen', 'changed_at', 'changed_by', 'change_reason']"
 
+# It runs as its owner (SECURITY DEFINER): the app's role may read history but never write it, so only this
+# function can add a version. The fixed search_path keeps a caller from slipping in look-alike tables.
 track_changes = PGFunction(
     schema="public",
     signature="thoth_track_changes()",
     definition=f"""
-RETURNS trigger LANGUAGE plpgsql AS $$
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
     actor text := nullif(current_setting('thoth.actor', true), '');
     reason text := nullif(current_setting('thoth.reason', true), '');
