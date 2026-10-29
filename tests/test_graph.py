@@ -77,7 +77,7 @@ def test_two_apps_using_each_other(client: TestClient, db: Engine) -> None:
 def test_retired_links_are_not_walked(client: TestClient, db: Engine) -> None:
     web(client, ("echo", "shikigami"), ("shikigami", "temporal"))
     with Session(db) as session:
-        write_as(session, "anubis", "nightly verdict: gone")
+        write_as(session, "svc+anubis", "nightly verdict: gone", verdict=True)
         session.exec(
             text(
                 "update relation set status = 'retired' where from_item = (select id from item where key = 'shikigami')"

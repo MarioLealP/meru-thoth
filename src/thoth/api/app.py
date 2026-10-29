@@ -9,7 +9,7 @@ from sqlmodel import Session
 
 from thoth import catalog
 from thoth.api import problems
-from thoth.api.deps import get_engine
+from thoth.api.deps import Reader, get_engine
 from thoth.api.items import router as items_router
 from thoth.api.snapshots import router as snapshots_router
 from thoth.catalog import check
@@ -111,7 +111,7 @@ class Catalog(BaseModel):
 
 
 @v1.get("/catalog", tags=["catalog"], operation_id="get_catalog", response_model_by_alias=True)
-def get_catalog() -> Catalog:
+def get_catalog(_: Reader) -> Catalog:
     """Every item and relation type: description, key pattern (items), allowed ends (relations), and the JSON Schema
     of its attributes - each field's `x-owners` lists the sources that may report it, first one wins."""
     return Catalog.model_validate(catalog.export())

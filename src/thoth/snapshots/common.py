@@ -53,9 +53,9 @@ def current_slices(observations: Iterable[Observation]) -> dict[str, dict[str, A
     return slices
 
 
-def begin(session: Session, source: str, scope: str, kind: str) -> None:
+def begin(session: Session, actor: str, source: str, scope: str, kind: str) -> None:
     """Who and why for the trigger; one snapshot per source + scope + kind at a time."""
-    write_as(session, source, f"snapshot from {source}@{scope}")
+    write_as(session, actor, f"snapshot from {source}@{scope}")
     session.connection().execute(text("select pg_advisory_xact_lock(hashtext(:k))"), {"k": f"{kind}:{source}@{scope}"})
 
 

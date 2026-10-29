@@ -10,8 +10,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
 from sqlmodel import Session
 
+from tests.tokens import ALL_TEST_PERMISSIONS, KEYS, SETTINGS, mint
 from thoth.api import app
-from thoth.api.deps import get_engine
+from thoth.api.deps import get_engine, get_verifier
+from thoth.auth import Verifier
 from thoth.catalog import check
 from thoth.db import make_engine
 
@@ -51,9 +53,17 @@ def session(db: Engine) -> Iterator[Session]:
 
 
 @pytest.fixture
-def client(db: Engine) -> Iterator[TestClient]:
-    """The API on a fresh database."""
+def anon(db: Engine) -> Iterator[TestClient]:
+    """The API on a fresh database, with no token - send your own."""
     app.dependency_overrides[get_engine] = lambda: db
+    app.dependency_overrides[get_verifier] = lambda: Verifier(SETTINGS, KEYS)
     app.state.catalog_checked = False
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client(anon: TestClient) -> TestClient:
+    """The API with a test bot's token that may read, correct and report as every source the tests use."""
+    anon.headers["Authorization"] = f"Bearer {mint(*ALL_TEST_PERMISSIONS)}"
+    return anon

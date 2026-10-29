@@ -1,15 +1,16 @@
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlmodel import Session, col, select
 
 from thoth import snapshots
-from thoth.api.deps import get_engine
+from thoth.api.deps import CallerDep, Reader, get_engine
 from thoth.api.problems import Problem, ProblemError
+from thoth.auth import Caller, report
 from thoth.catalog import Source
 from thoth.catalog.scopes import SCOPE_PATTERN
 from thoth.models import SnapshotRun
@@ -82,6 +83,12 @@ class SnapshotRunOut(BaseModel):
     summary: dict = Field(examples=[_RUN_EXAMPLE["summary"]])
 
 
+def _may_report(caller: Caller, source: str, scope: str) -> None:
+    """The token must carry exactly this source + scope (D52, D56) - where a scan came from is the login's."""
+    if not caller.may(needed := report(source, scope)):
+        raise HTTPException(403, f"needs {needed}")
+
+
 def _body(description: str, example: dict[str, Any]) -> dict[str, Any]:
     return {"requestBody": {"description": description, "content": {"application/json": {"example": example}}}}
 
@@ -115,13 +122,21 @@ def _record(engine: Engine, run: dict[str, Any], apply: Any) -> Summary:
     openapi_extra=_body("Every item the source sees from this scope.", _ITEMS_EXAMPLE),
 )
 def put_scan_items(
-    scan_id: ScanPath, source: SourcePath, scope: ScopePath, snapshot: ItemSnapshot, engine: EngineDep
+    scan_id: ScanPath,
+    source: SourcePath,
+    scope: ScopePath,
+    snapshot: ItemSnapshot,
+    caller: CallerDep,
+    engine: EngineDep,
 ) -> Summary:
     """Phase 1 of a scan: what `source` sees from `scope`. All or nothing - anything wrong refuses the whole snapshot
     and keeps the last good data (the refusal is logged, for Zabbix). Sending the same scan again changes nothing."""
+    _may_report(caller, source, scope)
     now = datetime.now(UTC)
     run = {"scan_id": scan_id, "kind": "items", "source": source, "scope": scope, "at": now}
-    return _record(engine, run, lambda s: snapshots.apply_items(s, scan_id, source, scope, snapshot.items, now))
+    return _record(
+        engine, run, lambda s: snapshots.apply_items(s, caller.name, scan_id, source, scope, snapshot.items, now)
+    )
 
 
 @router.put(
@@ -130,13 +145,23 @@ def put_scan_items(
     openapi_extra=_body("Every link the source sees from this scope.", _RELATIONS_EXAMPLE),
 )
 def put_scan_relations(
-    scan_id: ScanPath, source: SourcePath, scope: ScopePath, snapshot: RelationSnapshot, engine: EngineDep
+    scan_id: ScanPath,
+    source: SourcePath,
+    scope: ScopePath,
+    snapshot: RelationSnapshot,
+    caller: CallerDep,
+    engine: EngineDep,
 ) -> Summary:
     """Phase 2 of a scan, once every source's items are in. A link whose other end doesn't exist yet is skipped and
     listed (it heals on the next scan); anything else wrong refuses the whole snapshot."""
+    _may_report(caller, source, scope)
     now = datetime.now(UTC)
     run = {"scan_id": scan_id, "kind": "relations", "source": source, "scope": scope, "at": now}
-    return _record(engine, run, lambda s: snapshots.apply_relations(s, scan_id, source, scope, snapshot.relations, now))
+    return _record(
+        engine,
+        run,
+        lambda s: snapshots.apply_relations(s, caller.name, scan_id, source, scope, snapshot.relations, now),
+    )
 
 
 @router.get(
@@ -144,7 +169,7 @@ def put_scan_relations(
     operation_id="list_snapshots",
     responses={200: {"content": {"application/json": {"example": [_RUN_EXAMPLE]}}}},
 )
-def list_snapshots(engine: EngineDep) -> list[SnapshotRunOut]:
+def list_snapshots(_: Reader, engine: EngineDep) -> list[SnapshotRunOut]:
     """The latest snapshot of every source + scope + kind - Zabbix watches this for refused or quiet sources."""
     with Session(engine) as session:
         latest = (

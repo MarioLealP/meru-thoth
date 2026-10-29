@@ -42,6 +42,13 @@ so a bad change never replaces the running one.
 Client routes live under `/v1/`, so a later `/v2` can change shapes while `/v1` keeps working. Only the probes
 (`/heartbeat`, `/ready`) sit outside.
 
+## Who may call
+
+Every route except `/heartbeat` and `/ready` needs an Authentik access token (client credentials - one bot per job,
+one per scanner instance) and a permission in it: `thoth.read`, `thoth.report:<source>@<scope>` (a scan's source
+and scope must match exactly), `thoth.manual` (corrections by hand), `thoth.verdict` (retiring - the database checks
+it too). Authentik is the one place that grants them.
+
 ## Developing
 
 Python 3.15 with [uv](https://docs.astral.sh/uv/), and podman for the test database and the API linters.

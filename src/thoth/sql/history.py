@@ -3,7 +3,7 @@
 It lives in the database, not the app, so no code path can skip it - not a buggy endpoint, not a script, not
 psql. The app passes who and why per transaction with `thoth.db.write_as`, which sets two settings these functions
 read: `thoth.actor` and `thoth.reason`. Deleting needs a third, `thoth.purge = on`, which only Charon's yearly
-purge sets. Only Anubis may set status retired (D53).
+purge sets. Only a writer with the verdict flag (Anubis) may set status retired (D53, D56).
 """
 
 from alembic_utils.pg_function import PGFunction
@@ -26,10 +26,11 @@ BEGIN
             USING HINT = 'open the transaction with thoth.db.write_as()';
     END IF;
 
-    -- Only Anubis gives the final verdict (D53).
-    IF TG_OP <> 'DELETE' AND NEW.status = 'retired' AND actor <> 'anubis'
+    -- Only Anubis gives the final verdict (D53): the API sets thoth.verdict only for a token with thoth.verdict.
+    IF TG_OP <> 'DELETE' AND NEW.status = 'retired' AND current_setting('thoth.verdict', true) IS DISTINCT FROM 'on'
        AND (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM 'retired') THEN
-        RAISE EXCEPTION 'thoth: only anubis retires (% tried to retire a % row)', actor, TG_TABLE_NAME;
+        RAISE EXCEPTION 'thoth: only anubis retires (% tried to retire a % row without thoth.verdict)', actor,
+            TG_TABLE_NAME;
     END IF;
 
     IF TG_OP = 'DELETE' THEN

@@ -23,12 +23,17 @@ All notable changes to Thoth. Format: [Keep a Changelog](https://keepachangelog.
   next scan. `GET /v1/snapshots` - each source's latest run.
 - History reads: `GET /v1/items/{id}/history` (every version, newest first, with who and why) and
   `GET /v1/items?as_of=<time>` (every item as it was then, same filters).
-- Renames: `POST /v1/renames` - same item, new key; the old key stays in history. Only the first reporter or
-  `manual` may rename.
+- Renames: `POST /v1/renames` - same item, new key; the old key stays in history. Needs `thoth.manual` or to
+  report as the item's first source.
 - Reads: `GET /v1/items` (filters: type, key, status, source; paged), `GET /v1/items/{id}`, and the web around an
   item - `GET /v1/items/{id}/web`: what depends on it (`impact`) and what it needs (`dependencies`), or one side
   with `?direction=`; one recursive query per side,
   each item once at its shortest distance with the link it came by, loops reported under `cycles` instead of
   followed, retired links skipped, `depth` 1-50 (default 10).
-- `decommissioning` status; only Anubis may set `retired` (enforced in the database).
+- Callers: every route except the probes needs an Authentik access token (checked per the security standard:
+  issuer, audience, algorithm, key, expiry) and a permission - `thoth.read`, `thoth.report:<source>@<scope>`,
+  `thoth.manual`, `thoth.verdict`. A scan's source + scope must match the token's; changes are recorded under the
+  bot's name.
+- `decommissioning` status; only a writer with the verdict flag (Anubis) may set `retired` - enforced in the
+  database.
 - API contract checks: house lint rules (`.spectral.yaml`, run with vacuum) and breaking-change detection (oasdiff).

@@ -8,6 +8,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
 from tests.test_snapshots import DESKTOP, item, put
+from tests.tokens import bearer
+from thoth.auth import MANUAL
 
 
 def as_of(client: TestClient, at: datetime, **filters: Any) -> list[tuple[str, str]]:
@@ -24,7 +26,7 @@ def three_versions(client: TestClient) -> list[datetime]:
     put(client, "host-scan", "clockmost-desktop", {**DESKTOP, "attributes": {"kind": "physical", "os": "CachyOS 2"}})
     moments.append(datetime.now(UTC))
     client.post("/v1/renames", json={"type": "host", "key": "clockmost-desktop", "new_key": "battlestation",
-                                     "by": "manual", "reason": "new name"})  # fmt: skip
+                                     "reason": "new name"}, headers=bearer(MANUAL, name="mario"))  # fmt: skip
     moments.append(datetime.now(UTC))
     return moments
 
@@ -34,9 +36,9 @@ def test_versions_newest_first_with_who_and_why(client: TestClient, db: Engine) 
     response = client.get(f"/v1/items/{item(db, 'host', 'battlestation').id}/history")
     versions = response.json()
     assert [(v["key"], v["attributes"]["os"], v["changed_by"]) for v in versions] == [
-        ("battlestation", "CachyOS 2", "manual"),
-        ("clockmost-desktop", "CachyOS 2", "host-scan"),
-        ("clockmost-desktop", "CachyOS", "host-scan"),
+        ("battlestation", "CachyOS 2", "mario"),
+        ("clockmost-desktop", "CachyOS 2", "svc+test"),
+        ("clockmost-desktop", "CachyOS", "svc+test"),
     ]
     assert versions[0]["valid_to"] is None
     for newer, older in itertools.pairwise(versions):

@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 from thoth import history
-from thoth.api.deps import get_engine
+from thoth.api.deps import CallerDep, Reader, get_engine
 from thoth.graph import Direction, walk
 from thoth.models import Item, Relation, Status
 from thoth.renames import Rename, RenameRefused, rename
@@ -57,7 +57,6 @@ _RENAME_EXAMPLE = {
     "key": "nitro5",
     "new_key": "clockmost-ai",
     "new_name": "clockmost-ai",
-    "by": "manual",
     "reason": "the Nitro 5 became the AI node",
 }
 
@@ -73,11 +72,11 @@ _RENAME_EXAMPLE = {
     },
     responses={200: {"content": {"application/json": {"example": _ITEM_EXAMPLE}}}},
 )
-def rename_item(request: Rename, engine: Annotated[Engine, Depends(get_engine)]) -> ItemOut:
+def rename_item(request: Rename, caller: CallerDep, engine: EngineDep) -> ItemOut:
     """Give an item a new key: same item, same relations; the old key stays in its history."""
     with Session(engine) as session:
         try:
-            item = rename(session, request)
+            item = rename(session, request, caller)
             session.commit()
         except RenameRefused as refused:
             raise HTTPException(refused.status, refused.detail) from refused
@@ -169,6 +168,7 @@ def _get(session: Session, item_id: UUID) -> Item:
     responses={200: {"content": {"application/json": {"example": [_ITEM_EXAMPLE]}}}},
 )
 def list_items(
+    _: Reader,
     engine: EngineDep,
     type: Annotated[str | None, Query(description="Only this item type.", examples=["host"])] = None,
     key: Annotated[str | None, Query(description="Only this exact key.", examples=["clockmost"])] = None,
@@ -200,7 +200,7 @@ def list_items(
     operation_id="get_item",
     responses={200: {"content": {"application/json": {"example": _ITEM_EXAMPLE}}}},
 )
-def get_item(item_id: ItemIdPath, engine: EngineDep) -> ItemOut:
+def get_item(item_id: ItemIdPath, _: Reader, engine: EngineDep) -> ItemOut:
     """One item as it is now."""
     with Session(engine) as session:
         return ItemOut.model_validate(_get(session, item_id), from_attributes=True)
@@ -219,7 +219,9 @@ SideQuery = Annotated[Side, Query(description="Both sides, or only one.")]
 
 
 @router.get("/items/{item_id}/web", operation_id="get_web", responses=_WEB_RESPONSE)
-def get_web(item_id: ItemIdPath, engine: EngineDep, depth: DepthQuery = 10, direction: SideQuery = Side.BOTH) -> WebOut:
+def get_web(
+    item_id: ItemIdPath, _: Reader, engine: EngineDep, depth: DepthQuery = 10, direction: SideQuery = Side.BOTH
+) -> WebOut:
     """What depends on this item (what breaks if it goes) and what it needs to work."""
     with Session(engine) as session:
         root = _get(session, item_id)
@@ -260,7 +262,7 @@ _HISTORY_EXAMPLE = [
     operation_id="get_item_history",
     responses={200: {"content": {"application/json": {"example": _HISTORY_EXAMPLE}}}},
 )
-def get_item_history(item_id: ItemIdPath, engine: EngineDep) -> list[VersionOut]:
+def get_item_history(item_id: ItemIdPath, _: Reader, engine: EngineDep) -> list[VersionOut]:
     """Every version of the item, newest first, each with who made it and why."""
     with Session(engine) as session:
         _get(session, item_id)

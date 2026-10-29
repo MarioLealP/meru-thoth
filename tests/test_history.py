@@ -159,7 +159,7 @@ def test_only_anubis_retires(session: Session) -> None:
     with pytest.raises(DBAPIError, match="only anubis retires"):
         add(session, host, reason="looks gone to me")
     session.rollback()
-    write_as(session, "anubis", "nightly verdict: gone")
+    write_as(session, "svc+anubis", "nightly verdict: gone", verdict=True)
     session.exec(text("update item set status = 'retired'"))  # ty: ignore[no-matching-overload]
     session.commit()
     session.refresh(host)

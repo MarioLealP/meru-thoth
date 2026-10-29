@@ -36,13 +36,16 @@ class ProblemError(Exception):
         self.problem = problem
 
 
-def _respond(problem: Problem) -> JSONResponse:
-    return JSONResponse(problem.model_dump(exclude_none=True), status_code=problem.status, media_type=MEDIA_TYPE)
+def _respond(problem: Problem, headers: dict[str, str] | None = None) -> JSONResponse:
+    return JSONResponse(
+        problem.model_dump(exclude_none=True), status_code=problem.status, media_type=MEDIA_TYPE, headers=headers
+    )
 
 
 async def _http_error(_: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, HTTPException)
-    return _respond(Problem(title=HTTPStatus(exc.status_code).phrase, status=exc.status_code, detail=exc.detail))
+    problem = Problem(title=HTTPStatus(exc.status_code).phrase, status=exc.status_code, detail=exc.detail)
+    return _respond(problem, getattr(exc, "headers", None))
 
 
 async def _problem_error(_: Request, exc: Exception) -> JSONResponse:

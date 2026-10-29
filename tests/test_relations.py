@@ -117,10 +117,10 @@ def test_thirty_days_unseen_does_go_to_anubis(db: Engine) -> None:
     phone = ReportedItem(type="device", key="a4:5e:60:12:34:56", name="phone", attributes={})
     start = datetime.now(UTC)
     with Session(db) as session:
-        apply_items(session, "s1", Source.ROUTER, "all", [phone], start)
+        apply_items(session, "svc+r7000-scan", "s1", Source.ROUTER, "all", [phone], start)
         session.commit()
     with Session(db) as session:
-        summary = apply_items(session, "s2", Source.ROUTER, "all", [], start + timedelta(days=31))
+        summary = apply_items(session, "svc+r7000-scan", "s2", Source.ROUTER, "all", [], start + timedelta(days=31))
         session.commit()
     assert summary.for_anubis == ["device a4:5e:60:12:34:56"]
 

@@ -32,6 +32,14 @@ rules:
       functionOptions:
         match: "^(/v[0-9]+/.+|/heartbeat|/ready)$"
 
+  thoth-operations-secured:
+    description: Every operation declares the token it needs (D47, D56) - only the probes are open.
+    severity: error
+    given: "$.paths[?(@property != '/heartbeat' && @property != '/ready')][get,put,post,patch,delete]"
+    then:
+      field: security
+      function: truthy
+
   thoth-errors-are-problems:
     description: Every operation documents its errors as application/problem+json (one error shape for clients).
     severity: error

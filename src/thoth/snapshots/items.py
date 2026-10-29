@@ -67,11 +67,11 @@ def problems(source: str, scope: str, items: list[ReportedItem]) -> list[str]:
 
 
 def apply_items(
-    session: Session, scan_id: str, source: Source, scope: str, items: list[ReportedItem], now: datetime
+    session: Session, actor: str, scan_id: str, source: Source, scope: str, items: list[ReportedItem], now: datetime
 ) -> Summary:
     if errors := problems(source, scope, items):
         raise SnapshotRefused(errors)
-    begin(session, source, scope, "items")
+    begin(session, actor, source, scope, "items")
 
     declaring = source == Source.SHIKIGAMI  # declares, doesn't see (D40, D53)
     pairs = [(i.type, i.key) for i in items]

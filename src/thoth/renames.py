@@ -8,7 +8,8 @@ name still exists.
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
-from thoth.catalog import ITEMS, Source
+from thoth.auth import MANUAL, Caller
+from thoth.catalog import ITEMS
 from thoth.db import write_as
 from thoth.models import Item, Status
 
@@ -20,7 +21,6 @@ class Rename(BaseModel):
     key: str = Field(examples=["nitro5"])
     new_key: str = Field(examples=["clockmost-ai"])
     new_name: str | None = Field(default=None, examples=["clockmost-ai"])
-    by: Source = Field(examples=["manual"])  # until callers have their own logins
     reason: str = Field(min_length=1, examples=["the Nitro 5 became the AI node"])
 
 
@@ -30,7 +30,7 @@ class RenameRefused(Exception):
         self.status, self.detail = status, detail
 
 
-def rename(session: Session, request: Rename) -> Item:
+def rename(session: Session, request: Rename, caller: Caller) -> Item:
     spec = ITEMS.get(request.type)
     if spec is None:
         raise RenameRefused(422, f"unknown type {request.type}")
@@ -39,14 +39,14 @@ def rename(session: Session, request: Rename) -> Item:
     item = session.exec(select(Item).where(Item.type == request.type, Item.key == request.key)).first()
     if item is None:
         raise RenameRefused(404, f"no {request.type} {request.key}")
-    if request.by not in (item.source, Source.MANUAL):
-        raise RenameRefused(403, f"only {item.source} (which reported it first) or manual may rename it")
+    if not (caller.may(MANUAL) or caller.reports_as(item.source)):
+        raise RenameRefused(403, f"needs {MANUAL}, or to report as {item.source} (which reported it first)")
     if item.status == Status.RETIRED:
         raise RenameRefused(409, f"{request.type} {request.key} is retired")
     if session.exec(select(Item).where(Item.type == request.type, Item.key == request.new_key)).first():
         raise RenameRefused(409, f"{request.type} {request.new_key} already exists")
 
-    write_as(session, request.by, f"rename {request.key} -> {request.new_key}: {request.reason}")
+    write_as(session, caller.name, f"rename {request.key} -> {request.new_key}: {request.reason}")
     item.key = request.new_key
     if request.new_name is not None:
         item.name = request.new_name

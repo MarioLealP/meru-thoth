@@ -86,7 +86,13 @@ def problems(source: str, scope: str, relations: list[ReportedRelation]) -> list
 
 
 def apply_relations(
-    session: Session, scan_id: str, source: Source, scope: str, relations: list[ReportedRelation], now: datetime
+    session: Session,
+    actor: str,
+    scan_id: str,
+    source: Source,
+    scope: str,
+    relations: list[ReportedRelation],
+    now: datetime,
 ) -> Summary:
     if errors := problems(source, scope, relations):
         raise SnapshotRefused(errors)
@@ -108,7 +114,7 @@ def apply_relations(
         resolved.append((rel, a, b))
     if errors:
         raise SnapshotRefused(errors)
-    begin(session, source, scope, "relations")
+    begin(session, actor, source, scope, "relations")
 
     declaring = source == Source.SHIKIGAMI
     triples = [(rel.type, a.id, b.id) for rel, a, b in resolved]
