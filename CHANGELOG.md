@@ -21,5 +21,7 @@ All notable changes to Thoth. Format: [Keep a Changelog](https://keepachangelog.
   snapshot. Slices merge by field precedence; misses count once per scan; 3 misses (or, for types that come and go,
   30 days unseen) put a thing on Anubis's list; links whose other end doesn't exist yet are skipped and heal on the
   next scan. `GET /v1/snapshots` - each source's latest run.
+- Renames: `POST /v1/renames` - same item, new key; the old key stays in history. Only the first reporter or
+  `manual` may rename.
 - `decommissioning` status; only Anubis may set `retired` (enforced in the database).
 - API contract checks: house lint rules (`.spectral.yaml`, run with vacuum) and breaking-change detection (oasdiff).

@@ -87,6 +87,139 @@
         "title": "Health",
         "type": "object"
       },
+      "ItemOut": {
+        "description": "An item as it is now. `changed_*` say who made this version and why; earlier versions are its history.",
+        "properties": {
+          "attributes": {
+            "additionalProperties": true,
+            "examples": [
+              {
+                "kind": "physical",
+                "os": "AlmaLinux 10.2"
+              }
+            ],
+            "title": "Attributes",
+            "type": "object"
+          },
+          "change_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "rename nitro5 -> clockmost-ai: the Nitro 5 became the AI node"
+            ],
+            "title": "Change Reason"
+          },
+          "changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "2026-10-29T12:00:00Z"
+            ],
+            "title": "Changed At"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "manual"
+            ],
+            "title": "Changed By"
+          },
+          "first_seen": {
+            "examples": [
+              "2026-10-01T12:00:00Z"
+            ],
+            "format": "date-time",
+            "title": "First Seen",
+            "type": "string"
+          },
+          "id": {
+            "examples": [
+              "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11"
+            ],
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "key": {
+            "examples": [
+              "clockmost-ai"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "last_seen": {
+            "examples": [
+              "2026-10-29T12:00:00Z"
+            ],
+            "format": "date-time",
+            "title": "Last Seen",
+            "type": "string"
+          },
+          "name": {
+            "examples": [
+              "clockmost-ai"
+            ],
+            "title": "Name",
+            "type": "string"
+          },
+          "source": {
+            "examples": [
+              "host-scan"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status",
+            "examples": [
+              "active"
+            ]
+          },
+          "type": {
+            "examples": [
+              "host"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "key",
+          "name",
+          "status",
+          "attributes",
+          "source",
+          "first_seen",
+          "last_seen",
+          "changed_at",
+          "changed_by",
+          "change_reason"
+        ],
+        "title": "ItemOut",
+        "type": "object"
+      },
       "ItemSnapshot": {
         "description": "Every item a source sees from one scope - its whole picture, not a diff.",
         "properties": {
@@ -330,6 +463,69 @@
         "title": "RelationTypeOut",
         "type": "object"
       },
+      "Rename": {
+        "description": "Give an item a new key (and optionally a new name).",
+        "properties": {
+          "by": {
+            "$ref": "#/components/schemas/Source",
+            "examples": [
+              "manual"
+            ]
+          },
+          "key": {
+            "examples": [
+              "nitro5"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "new_key": {
+            "examples": [
+              "clockmost-ai"
+            ],
+            "title": "New Key",
+            "type": "string"
+          },
+          "new_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "clockmost-ai"
+            ],
+            "title": "New Name"
+          },
+          "reason": {
+            "examples": [
+              "the Nitro 5 became the AI node"
+            ],
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "type": {
+            "examples": [
+              "host"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "key",
+          "new_key",
+          "by",
+          "reason"
+        ],
+        "title": "Rename",
+        "type": "object"
+      },
       "ReportedEnd": {
         "description": "One end of a link: the item's type and key.",
         "properties": {
@@ -520,6 +716,18 @@
           "caddy-scan"
         ],
         "title": "Source",
+        "type": "string"
+      },
+      "Status": {
+        "description": "planned -> active <-> missing; active -> decommissioning -> retired; missing -> retired (D53).",
+        "enum": [
+          "planned",
+          "active",
+          "missing",
+          "decommissioning",
+          "retired"
+        ],
+        "title": "Status",
         "type": "string"
       },
       "Summary": {
@@ -714,6 +922,81 @@
         "summary": "Get Catalog",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/v1/renames": {
+      "post": {
+        "description": "Give an item a new key: same item, same relations; the old key stays in its history.",
+        "operationId": "rename_item",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "by": "manual",
+                "key": "nitro5",
+                "new_key": "clockmost-ai",
+                "new_name": "clockmost-ai",
+                "reason": "the Nitro 5 became the AI node",
+                "type": "host"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/Rename"
+              }
+            }
+          },
+          "description": "Which item, its new key, and why.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "attributes": {
+                    "kind": "physical",
+                    "os": "AlmaLinux 10.2"
+                  },
+                  "change_reason": "rename nitro5 -> clockmost-ai: the Nitro 5 became the AI node",
+                  "changed_at": "2026-10-29T12:00:00Z",
+                  "changed_by": "manual",
+                  "first_seen": "2026-10-01T12:00:00Z",
+                  "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                  "key": "clockmost-ai",
+                  "last_seen": "2026-10-29T12:00:00Z",
+                  "name": "clockmost-ai",
+                  "source": "host-scan",
+                  "status": "active",
+                  "type": "host"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ItemOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "example": {
+                  "status": 404,
+                  "title": "Not Found",
+                  "type": "about:blank"
+                }
+              }
+            },
+            "description": "Any error, as problem details."
+          }
+        },
+        "summary": "Rename Item",
+        "tags": [
+          "items"
         ]
       }
     },
@@ -1022,6 +1305,10 @@
     {
       "description": "Which item and relation types exist, and what they hold.",
       "name": "catalog"
+    },
+    {
+      "description": "The inventory: items, their links and their history.",
+      "name": "items"
     },
     {
       "description": "Sources report what they see; Thoth works out what changed.",

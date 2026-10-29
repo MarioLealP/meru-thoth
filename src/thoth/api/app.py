@@ -10,6 +10,7 @@ from sqlmodel import Session
 from thoth import catalog
 from thoth.api import problems
 from thoth.api.deps import get_engine
+from thoth.api.items import router as items_router
 from thoth.api.snapshots import router as snapshots_router
 from thoth.catalog import check
 
@@ -26,6 +27,7 @@ app = FastAPI(
     openapi_tags=[
         {"name": "health", "description": "Is Thoth up."},
         {"name": "catalog", "description": "Which item and relation types exist, and what they hold."},
+        {"name": "items", "description": "The inventory: items, their links and their history."},
         {"name": "scans", "description": "Sources report what they see; Thoth works out what changed."},
     ],
     responses={"default": problems.PROBLEM_RESPONSE},
@@ -115,5 +117,6 @@ def get_catalog() -> Catalog:
     return Catalog.model_validate(catalog.export())
 
 
+v1.include_router(items_router)
 v1.include_router(snapshots_router)
 app.include_router(v1)
