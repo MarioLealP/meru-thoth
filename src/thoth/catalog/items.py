@@ -1,5 +1,6 @@
 """The v1 item types (D36, D40, D41, D43, D45). Attributes start small: each source adds its fields when it's built."""
 
+from datetime import timedelta
 from typing import ClassVar, Literal
 
 from thoth.catalog.base import ItemSpec, Source, owned_by
@@ -69,6 +70,7 @@ class Device(ItemSpec):
 
     type_name = "device"
     key_pattern: ClassVar[str] = r"^([0-9a-f]{2}:){5}[0-9a-f]{2}$"
+    missing_after: ClassVar[timedelta | None] = timedelta(days=30)  # phones leave, things get unplugged
 
     label: str | None = owned_by(Source.MANUAL, default=None)
 

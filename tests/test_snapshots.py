@@ -1,5 +1,6 @@
-"""Snapshots through the API, against the real database: D51 (strict slices), D52 (scope), D53 (misses, Anubis)."""
+"""Item snapshots through the API, against the real database: D51 (strict slices), D52 (scope), D53/D54 (misses)."""
 
+import itertools
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -18,8 +19,12 @@ def account(login: str, email: str | None = None, host: str = "clockmost-desktop
     return {"type": "account", "key": f"linux/{host}/{login}", "name": login, "attributes": {"email": email}}
 
 
-def put(client: TestClient, source: str, scope: str, *items: dict[str, Any]) -> Response:
-    return client.put(f"/v1/snapshots/{source}/{scope}", json={"items": list(items)})
+_scans = itertools.count()
+
+
+def put(client: TestClient, source: str, scope: str, *items: dict[str, Any], scan: str | None = None) -> Response:
+    """Phase 1 of a scan; a new scan id each call unless one is given."""
+    return client.put(f"/v1/scans/{scan or f'scan-{next(_scans)}'}/{source}/{scope}/items", json={"items": list(items)})
 
 
 def item(db: Engine, type_name: str, key: str) -> Item:
@@ -35,7 +40,7 @@ def history(db: Engine, it: Item) -> list[ItemHistory]:
 def test_first_snapshot_creates_items(client: TestClient, db: Engine) -> None:
     response = put(client, "host-scan", "clockmost-desktop", DESKTOP, account("benylin", "lealmariop@gmail.com"))
     assert response.status_code == 200, response.text
-    assert response.json() == {"created": 2, "changed": 0, "unchanged": 0, "missed": 0, "for_anubis": []}
+    assert response.json() == {"created": 2, "changed": 0, "unchanged": 0, "missed": 0, "for_anubis": [], "skipped": []}
     host = item(db, "host", "clockmost-desktop")
     assert (host.status, host.source, host.attributes) == (Status.ACTIVE, "host-scan", DESKTOP["attributes"])
     assert host.change_reason == "snapshot from host-scan@clockmost-desktop"
@@ -149,7 +154,22 @@ def test_latest_snapshot_per_source(client: TestClient) -> None:
     put(client, "host-scan", "clockmost-desktop", DESKTOP)
     put(client, "authentik-sync", "all")
     runs = client.get("/v1/snapshots").json()
+    assert all(r["kind"] == "items" for r in runs)
     assert [(r["source"], r["scope"], r["accepted"]) for r in runs] == [
         ("authentik-sync", "all", True),
         ("host-scan", "clockmost-desktop", True),
     ]
+
+
+def test_resending_a_scan_counts_no_extra_misses(client: TestClient) -> None:
+    put(client, "host-scan", "clockmost-desktop", DESKTOP, account("olduser"))
+    for _ in range(3):  # the same scan, retried three times
+        response = put(client, "host-scan", "clockmost-desktop", DESKTOP, scan="scan-retried").json()
+    assert response["for_anubis"] == []  # one scan without it, not three
+
+
+def test_things_that_come_and_go_wait_for_time_not_scans(client: TestClient) -> None:
+    phone = {"type": "device", "key": "a4:5e:60:12:34:56", "name": "phone", "attributes": {}}
+    put(client, "r7000-scan", "all", phone)
+    for _ in range(5):  # off the Wi-Fi for five scans: normal for a phone
+        assert put(client, "r7000-scan", "all").json()["for_anubis"] == []

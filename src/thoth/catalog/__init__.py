@@ -21,6 +21,7 @@ def export() -> dict[str, Any]:
             name: {
                 "description": spec.description(),
                 "key_pattern": spec.key_pattern,
+                "missing_after_days": _days(spec),
                 "schema": spec.model_json_schema(),
             }
             for name, spec in ITEMS.items()
@@ -30,11 +31,16 @@ def export() -> dict[str, Any]:
                 "description": spec.description(),
                 "from": sorted(spec.from_types),
                 "to": sorted(spec.to_types),
+                "missing_after_days": _days(spec),
                 "schema": spec.model_json_schema(),
             }
             for name, spec in RELATIONS.items()
         },
     }
+
+
+def _days(spec: type[ItemSpec] | type[RelationSpec]) -> int | None:
+    return spec.missing_after.days if spec.missing_after else None  # None: 3 scans without it
 
 
 __all__ = ["ANY_TYPE", "ITEMS", "RELATIONS", "ItemSpec", "RelationSpec", "Source", "export", "owned_by"]

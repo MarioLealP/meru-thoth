@@ -26,7 +26,7 @@ app = FastAPI(
     openapi_tags=[
         {"name": "health", "description": "Is Thoth up."},
         {"name": "catalog", "description": "Which item and relation types exist, and what they hold."},
-        {"name": "snapshots", "description": "Sources report what they see; Thoth works out what changed."},
+        {"name": "scans", "description": "Sources report what they see; Thoth works out what changed."},
     ],
     responses={"default": problems.PROBLEM_RESPONSE},
 )

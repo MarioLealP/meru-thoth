@@ -52,8 +52,25 @@ class ItemObservation(SQLModel, table=True):
     attributes: dict[str, Any] = Field(default_factory=dict, sa_type=JSONB)
     first_seen: datetime = Field(sa_type=TIMESTAMP)
     last_seen: datetime = Field(sa_type=TIMESTAMP)
-    # Snapshots in a row from this source + scope without the item. At 3 it is on Anubis's list (D53).
+    # Scans in a row from this source + scope without the item. At 3 it is on Anubis's list (D53), unless its type
+    # comes and goes (missing_after in the catalog). Counted once per scan, so a resent snapshot changes nothing.
     missed_scans: int = Field(default=0, ge=0)
+    last_scan: str = Field(max_length=128)  # the scan that last reported it or counted it missed (D54)
+
+
+class RelationObservation(SQLModel, table=True):
+    """What one source reported about one relation from one scope - the same idea as ItemObservation."""
+
+    __tablename__ = "relation_observation"
+
+    relation_id: UUID = Field(foreign_key="relation.id", primary_key=True)
+    source: str = Field(primary_key=True, max_length=64)
+    scope: str = Field(primary_key=True, max_length=128)
+    attributes: dict[str, Any] = Field(default_factory=dict, sa_type=JSONB)
+    first_seen: datetime = Field(sa_type=TIMESTAMP)
+    last_seen: datetime = Field(sa_type=TIMESTAMP)
+    missed_scans: int = Field(default=0, ge=0)
+    last_scan: str = Field(max_length=128)
 
 
 class SnapshotRun(SQLModel, table=True):
@@ -63,6 +80,8 @@ class SnapshotRun(SQLModel, table=True):
     __table_args__ = (sa.Index("ix_snapshot_run_source_scope_at", "source", "scope", "at"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
+    scan_id: str = Field(max_length=128)
+    kind: str = Field(max_length=16)  # items | relations
     source: str = Field(max_length=64)
     scope: str = Field(max_length=128)
     at: datetime = Field(sa_type=TIMESTAMP)

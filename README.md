@@ -63,8 +63,9 @@ uv run alembic revision --autogenerate -m "what changed"
 
 Read the generated migration before committing it. A test fails if the models and the migrations disagree.
 
-Changing the API or the catalog: run `uv run scripts/generate.py` and commit `openapi.json` and `catalog.json`. CI lints it against `.spectral.yaml`
-and fails on breaking changes against `main`.
+Changing the API or the catalog: run `uv run scripts/generate.py` and commit `openapi.json` and `catalog.json`.
+CI lints the API against `.spectral.yaml` and fails on breaking changes against `main` - for the API that means a
+new `/vN` route (before the first release, an `API-Break: <why>` commit trailer).
 
 ## License
 

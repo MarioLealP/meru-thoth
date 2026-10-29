@@ -31,8 +31,16 @@ if git cat-file -e "$base:openapi.json" 2>/dev/null; then
     old=$(mktemp -d)
     trap 'rm -rf "$old"' EXIT
     git show "$base:openapi.json" >"$old/openapi.json"
-    podman run --rm -v "$old:/base:Z,ro" -v "$PWD:/work:Z,ro" "$OASDIFF" \
-        breaking --fail-on ERR /base/openapi.json /work/openapi.json
+    if ! podman run --rm -v "$old:/base:Z,ro" -v "$PWD:/work:Z,ro" "$OASDIFF" \
+        breaking --fail-on ERR /base/openapi.json /work/openapi.json; then
+        # Before the first release only: acknowledge with a commit trailer. Released, a break is a new /vN (D50).
+        if git log "$base..HEAD" --format='%(trailers:key=API-Break,valueonly)' | grep -q .; then
+            echo "acknowledged by an API-Break trailer"
+        else
+            echo "breaking API change - a new /vN route, or before the first release an \`API-Break: <why>\` trailer"
+            exit 1
+        fi
+    fi
 else
     echo "no openapi.json on $base yet - nothing to compare"
 fi

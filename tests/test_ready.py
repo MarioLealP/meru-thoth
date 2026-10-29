@@ -19,7 +19,7 @@ def add_host(db: Engine, key: str, attributes: dict, observed: dict | None = Non
         session.flush()
         if observed is not None:
             session.add(ItemObservation(item_id=item.id, source="host-scan", scope=key.lower(), attributes=observed,
-                                        first_seen=now, last_seen=now))  # fmt: skip
+                                        first_seen=now, last_seen=now, last_scan="test"))  # fmt: skip
         session.commit()
 
 

@@ -13,6 +13,7 @@ must always send it. Declared-vs-observed drift compares the slices, not the mer
 
 import re
 from copy import copy
+from datetime import timedelta
 from enum import StrEnum
 from functools import cache
 from typing import Any, ClassVar
@@ -50,6 +51,9 @@ class Spec(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     type_name: ClassVar[str]
+    # Types whose presence comes and goes (a phone, the desktop on the LAN): go to Anubis only after this long unseen,
+    # instead of after 3 scans without them (D54).
+    missing_after: ClassVar[timedelta | None] = None
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:

@@ -16,8 +16,10 @@ All notable changes to Thoth. Format: [Keep a Changelog](https://keepachangelog.
   may report it (first one wins); `GET /v1/catalog`; exported to `catalog.json`.
 - Catalog safety: breaking catalog changes fail CI unless acknowledged with a `Catalog-Break:` commit trailer, and
   a new version stays unready while any stored row doesn't fit its catalog.
-- Snapshots: `PUT /v1/snapshots/{source}/{scope}` - a source's whole picture from one scope, all or nothing. Every
-  owned field must be sent (`null` when empty); anything wrong refuses the snapshot. Slices merge by field
-  precedence; 3 misses in a row put an item on Anubis's list. `GET /v1/snapshots` - each source's latest run.
+- Scans (D54): `PUT /v1/scans/{scan_id}/{source}/{scope}/items`, then `.../relations` - a source's whole picture
+  from one scope, all or nothing. Every owned field must be sent (`null` when empty); anything wrong refuses the
+  snapshot. Slices merge by field precedence; misses count once per scan; 3 misses (or, for types that come and go,
+  30 days unseen) put a thing on Anubis's list; links whose other end doesn't exist yet are skipped and heal on the
+  next scan. `GET /v1/snapshots` - each source's latest run.
 - `decommissioning` status; only Anubis may set `retired` (enforced in the database).
 - API contract checks: house lint rules (`.spectral.yaml`, run with vacuum) and breaking-change detection (oasdiff).

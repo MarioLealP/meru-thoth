@@ -87,6 +87,45 @@
         "title": "Health",
         "type": "object"
       },
+      "ItemSnapshot": {
+        "description": "Every item a source sees from one scope - its whole picture, not a diff.",
+        "properties": {
+          "items": {
+            "examples": [
+              [
+                {
+                  "attributes": {
+                    "kind": "physical",
+                    "os": "CachyOS"
+                  },
+                  "key": "clockmost-desktop",
+                  "name": "clockmost-desktop",
+                  "type": "host"
+                },
+                {
+                  "attributes": {
+                    "email": "lealmariop@gmail.com"
+                  },
+                  "key": "linux/clockmost-desktop/benylin",
+                  "name": "benylin",
+                  "type": "account"
+                }
+              ]
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ReportedItem"
+            },
+            "maxItems": 20000,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ItemSnapshot",
+        "type": "object"
+      },
       "ItemTypeOut": {
         "description": "An item type.",
         "properties": {
@@ -200,6 +239,40 @@
         "title": "Problem",
         "type": "object"
       },
+      "RelationSnapshot": {
+        "description": "Every link a source sees from one scope.",
+        "properties": {
+          "relations": {
+            "examples": [
+              [
+                {
+                  "attributes": {},
+                  "from": {
+                    "key": "linux/clockmost-desktop/benylin",
+                    "type": "account"
+                  },
+                  "to": {
+                    "key": "linux/clockmost-desktop/wheel",
+                    "type": "group"
+                  },
+                  "type": "member-of"
+                }
+              ]
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ReportedRelation"
+            },
+            "maxItems": 50000,
+            "title": "Relations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "relations"
+        ],
+        "title": "RelationSnapshot",
+        "type": "object"
+      },
       "RelationTypeOut": {
         "description": "A relation type: which item types may sit at each end (`*` = any).",
         "properties": {
@@ -257,6 +330,31 @@
         "title": "RelationTypeOut",
         "type": "object"
       },
+      "ReportedEnd": {
+        "description": "One end of a link: the item's type and key.",
+        "properties": {
+          "key": {
+            "examples": [
+              "linux/clockmost-desktop/benylin"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "type": {
+            "examples": [
+              "account"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "key"
+        ],
+        "title": "ReportedEnd",
+        "type": "object"
+      },
       "ReportedItem": {
         "description": "One thing, as a source sees it.",
         "properties": {
@@ -301,43 +399,44 @@
         "title": "ReportedItem",
         "type": "object"
       },
-      "Snapshot": {
-        "description": "Everything a source sees from one scope - its whole picture, not a diff.",
+      "ReportedRelation": {
+        "description": "One link, as a source sees it: `from` depends on `to`.",
         "properties": {
-          "items": {
+          "attributes": {
+            "additionalProperties": true,
             "examples": [
-              [
-                {
-                  "attributes": {
-                    "kind": "physical",
-                    "os": "CachyOS"
-                  },
-                  "key": "clockmost-desktop",
-                  "name": "clockmost-desktop",
-                  "type": "host"
-                },
-                {
-                  "attributes": {
-                    "email": "lealmariop@gmail.com"
-                  },
-                  "key": "linux/clockmost-desktop/benylin",
-                  "name": "benylin",
-                  "type": "account"
-                }
-              ]
+              {}
             ],
-            "items": {
-              "$ref": "#/components/schemas/ReportedItem"
-            },
-            "maxItems": 20000,
-            "title": "Items",
-            "type": "array"
+            "title": "Attributes",
+            "type": "object"
+          },
+          "from": {
+            "$ref": "#/components/schemas/ReportedEnd"
+          },
+          "to": {
+            "$ref": "#/components/schemas/ReportedEnd",
+            "examples": [
+              {
+                "key": "linux/clockmost-desktop/wheel",
+                "type": "group"
+              }
+            ]
+          },
+          "type": {
+            "examples": [
+              "member-of"
+            ],
+            "title": "Type",
+            "type": "string"
           }
         },
         "required": [
-          "items"
+          "type",
+          "from",
+          "to",
+          "attributes"
         ],
-        "title": "Snapshot",
+        "title": "ReportedRelation",
         "type": "object"
       },
       "SnapshotRunOut": {
@@ -350,6 +449,20 @@
           "at": {
             "format": "date-time",
             "title": "At",
+            "type": "string"
+          },
+          "kind": {
+            "examples": [
+              "items"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "scan_id": {
+            "examples": [
+              "scan-2026-10-29T12-00"
+            ],
+            "title": "Scan Id",
             "type": "string"
           },
           "scope": {
@@ -374,6 +487,7 @@
                 "created": 0,
                 "for_anubis": [],
                 "missed": 0,
+                "skipped": [],
                 "unchanged": 40
               }
             ],
@@ -382,6 +496,8 @@
           }
         },
         "required": [
+          "scan_id",
+          "kind",
           "source",
           "scope",
           "at",
@@ -441,6 +557,16 @@
             ],
             "title": "Missed",
             "type": "integer"
+          },
+          "skipped": {
+            "examples": [
+              []
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "Skipped",
+            "type": "array"
           },
           "unchanged": {
             "examples": [
@@ -591,69 +717,26 @@
         ]
       }
     },
-    "/v1/snapshots": {
-      "get": {
-        "description": "The latest snapshot of every source + scope - Zabbix watches this for refused or stale sources.",
-        "operationId": "list_snapshots",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "example": [
-                  {
-                    "accepted": true,
-                    "at": "2026-10-29T12:00:00Z",
-                    "scope": "clockmost-desktop",
-                    "source": "host-scan",
-                    "summary": {
-                      "changed": 1,
-                      "created": 0,
-                      "for_anubis": [],
-                      "missed": 0,
-                      "unchanged": 40
-                    }
-                  }
-                ],
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/SnapshotRunOut"
-                  },
-                  "title": "Response List Snapshots",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              },
-              "application/problem+json": {
-                "example": {
-                  "status": 404,
-                  "title": "Not Found",
-                  "type": "about:blank"
-                }
-              }
-            },
-            "description": "Any error, as problem details."
-          }
-        },
-        "summary": "List Snapshots",
-        "tags": [
-          "snapshots"
-        ]
-      }
-    },
-    "/v1/snapshots/{source}/{scope}": {
+    "/v1/scans/{scan_id}/{source}/{scope}/items": {
       "put": {
-        "description": "Report what `source` sees from `scope`. All or nothing: anything wrong refuses the whole snapshot and keeps\nthe last good data (every refusal is logged, for Zabbix). Things missing 3 snapshots in a row go to Anubis.",
-        "operationId": "put_snapshot",
+        "description": "Phase 1 of a scan: what `source` sees from `scope`. All or nothing - anything wrong refuses the whole snapshot\nand keeps the last good data (the refusal is logged, for Zabbix). Sending the same scan again changes nothing.",
+        "operationId": "put_scan_items",
         "parameters": [
+          {
+            "description": "The scan run this belongs to (the workflow's id).",
+            "in": "path",
+            "name": "scan_id",
+            "required": true,
+            "schema": {
+              "description": "The scan run this belongs to (the workflow's id).",
+              "examples": [
+                "scan-2026-10-29T12-00"
+              ],
+              "pattern": "^[A-Za-z0-9._-]{1,128}$",
+              "title": "Scan Id",
+              "type": "string"
+            }
+          },
           {
             "description": "Who is reporting.",
             "in": "path",
@@ -709,11 +792,11 @@
                 ]
               },
               "schema": {
-                "$ref": "#/components/schemas/Snapshot"
+                "$ref": "#/components/schemas/ItemSnapshot"
               }
             }
           },
-          "description": "The source's whole picture from this scope.",
+          "description": "Every item the source sees from this scope.",
           "required": true
         },
         "responses": {
@@ -745,9 +828,182 @@
             "description": "Any error, as problem details."
           }
         },
-        "summary": "Put Snapshot",
+        "summary": "Put Scan Items",
         "tags": [
-          "snapshots"
+          "scans"
+        ]
+      }
+    },
+    "/v1/scans/{scan_id}/{source}/{scope}/relations": {
+      "put": {
+        "description": "Phase 2 of a scan, once every source's items are in. A link whose other end doesn't exist yet is skipped and\nlisted (it heals on the next scan); anything else wrong refuses the whole snapshot.",
+        "operationId": "put_scan_relations",
+        "parameters": [
+          {
+            "description": "The scan run this belongs to (the workflow's id).",
+            "in": "path",
+            "name": "scan_id",
+            "required": true,
+            "schema": {
+              "description": "The scan run this belongs to (the workflow's id).",
+              "examples": [
+                "scan-2026-10-29T12-00"
+              ],
+              "pattern": "^[A-Za-z0-9._-]{1,128}$",
+              "title": "Scan Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Who is reporting.",
+            "in": "path",
+            "name": "source",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Source",
+              "description": "Who is reporting.",
+              "examples": [
+                "host-scan"
+              ]
+            }
+          },
+          {
+            "description": "Where it looked: a machine or cluster name, or `all` for sources that see a whole system.",
+            "in": "path",
+            "name": "scope",
+            "required": true,
+            "schema": {
+              "description": "Where it looked: a machine or cluster name, or `all` for sources that see a whole system.",
+              "examples": [
+                "clockmost-desktop"
+              ],
+              "maxLength": 63,
+              "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+              "title": "Scope",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "relations": [
+                  {
+                    "attributes": {},
+                    "from": {
+                      "key": "linux/clockmost-desktop/benylin",
+                      "type": "account"
+                    },
+                    "to": {
+                      "key": "linux/clockmost-desktop/wheel",
+                      "type": "group"
+                    },
+                    "type": "member-of"
+                  }
+                ]
+              },
+              "schema": {
+                "$ref": "#/components/schemas/RelationSnapshot"
+              }
+            }
+          },
+          "description": "Every link the source sees from this scope.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Summary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "example": {
+                  "status": 404,
+                  "title": "Not Found",
+                  "type": "about:blank"
+                }
+              }
+            },
+            "description": "Any error, as problem details."
+          }
+        },
+        "summary": "Put Scan Relations",
+        "tags": [
+          "scans"
+        ]
+      }
+    },
+    "/v1/snapshots": {
+      "get": {
+        "description": "The latest snapshot of every source + scope + kind - Zabbix watches this for refused or quiet sources.",
+        "operationId": "list_snapshots",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": [
+                  {
+                    "accepted": true,
+                    "at": "2026-10-29T12:00:00Z",
+                    "kind": "items",
+                    "scan_id": "scan-2026-10-29T12-00",
+                    "scope": "clockmost-desktop",
+                    "source": "host-scan",
+                    "summary": {
+                      "changed": 1,
+                      "created": 0,
+                      "for_anubis": [],
+                      "missed": 0,
+                      "skipped": [],
+                      "unchanged": 40
+                    }
+                  }
+                ],
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SnapshotRunOut"
+                  },
+                  "title": "Response List Snapshots",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "example": {
+                  "status": 404,
+                  "title": "Not Found",
+                  "type": "about:blank"
+                }
+              }
+            },
+            "description": "Any error, as problem details."
+          }
+        },
+        "summary": "List Snapshots",
+        "tags": [
+          "scans"
         ]
       }
     }
@@ -769,7 +1025,7 @@
     },
     {
       "description": "Sources report what they see; Thoth works out what changed.",
-      "name": "snapshots"
+      "name": "scans"
     }
   ]
 }

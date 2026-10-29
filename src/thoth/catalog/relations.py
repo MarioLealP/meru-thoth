@@ -1,5 +1,6 @@
 """The v1 relation types (D38, D43). Direction is dependent first: follow arrows backwards for impact."""
 
+from datetime import timedelta
 from typing import ClassVar, Literal
 
 from thoth.catalog.base import ANY_TYPE, RelationSpec, Source, owned_by
@@ -74,6 +75,7 @@ class AttachedTo(RelationSpec):
     type_name = "attached-to"
     from_types: ClassVar[frozenset[str]] = frozenset({"host", "device"})
     to_types: ClassVar[frozenset[str]] = frozenset({"network"})
+    missing_after: ClassVar[timedelta | None] = timedelta(days=30)  # the desktop isn't on all day
 
     ip: str | None = owned_by(Source.ROUTER, Source.HOST, default=None)
 

@@ -3,6 +3,7 @@
     "account": {
       "description": "A login on one system, keyed `<system>/<login>`: authentik/mario, linux/clockmost/benylin, gitea/MarioGLealP. Every account should resolve to a person or a bot - one that doesn't is unexplained.",
       "key_pattern": "^(authentik|gitea|zot|linux/[a-z0-9]([a-z0-9-]*[a-z0-9])?|k8s/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?)/[A-Za-z0-9._+@-]+$",
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A login on one system, keyed `<system>/<login>`: authentik/mario, linux/clockmost/benylin, gitea/MarioGLealP.\n\nEvery account should resolve to a person or a bot - one that doesn't is unexplained.",
@@ -32,6 +33,7 @@
     "app": {
       "description": "A Meru app: the unit someone requests, owns and retires. Its parts point at it with part-of.",
       "key_pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A Meru app: the unit someone requests, owns and retires. Its parts point at it with part-of.",
@@ -59,6 +61,7 @@
     "bot": {
       "description": "A non-human identity, one per job, owned by a person. Its accounts link to it by its email.",
       "key_pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A non-human identity, one per job, owned by a person. Its accounts link to it by its email.",
@@ -92,6 +95,7 @@
     "cluster": {
       "description": "A Kubernetes cluster. Hosts join it with member-of (role server or agent).",
       "key_pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A Kubernetes cluster. Hosts join it with member-of (role server or agent).",
@@ -119,6 +123,7 @@
     "database": {
       "description": "A database in a CNPG cluster, keyed `<cluster>/<namespace>/<cnpg cluster>/<database>`.",
       "key_pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9_]+$",
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A database in a CNPG cluster, keyed `<cluster>/<namespace>/<cnpg cluster>/<database>`.",
@@ -130,6 +135,7 @@
     "device": {
       "description": "Anything on the network that isn't a host we manage (phones, printers, IoT), keyed by MAC address.",
       "key_pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+      "missing_after_days": 30,
       "schema": {
         "additionalProperties": false,
         "description": "Anything on the network that isn't a host we manage (phones, printers, IoT), keyed by MAC address.",
@@ -157,6 +163,7 @@
     "group": {
       "description": "A group on one system, keyed `<system>/<name>`: authentik/clockmost-admins, linux/clockmost/wheel.",
       "key_pattern": "^(authentik|gitea|zot|linux/[a-z0-9]([a-z0-9-]*[a-z0-9])?|k8s/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?)/[A-Za-z0-9._+@-]+$",
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A group on one system, keyed `<system>/<name>`: authentik/clockmost-admins, linux/clockmost/wheel.",
@@ -168,6 +175,7 @@
     "host": {
       "description": "An operating system instance - a physical machine or a VM - keyed by its short hostname.",
       "key_pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "An operating system instance - a physical machine or a VM - keyed by its short hostname.",
@@ -209,6 +217,7 @@
     "image": {
       "description": "A container image, keyed by digest: zot.clockmost.com/meru/echo@sha256:...",
       "key_pattern": "^[a-z0-9.:-]+(/[a-z0-9._-]+)+@sha256:[0-9a-f]{64}$",
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A container image, keyed by digest: zot.clockmost.com/meru/echo@sha256:...",
@@ -220,6 +229,7 @@
     "network": {
       "description": "A network segment, keyed `<where>/<name>`: r7000/br0 (the LAN), r7000/br1 (IoT), k8s/clockmost.",
       "key_pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9.-]+$",
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A network segment, keyed `<where>/<name>`: r7000/br0 (the LAN), r7000/br1 (IoT), k8s/clockmost.",
@@ -264,6 +274,7 @@
     "person": {
       "description": "A human. Accounts link to a person only on an exact email match; names are for display and search.",
       "key_pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A human. Accounts link to a person only on an exact email match; names are for display and search.",
@@ -296,6 +307,7 @@
     "repo": {
       "description": "A git repository, keyed by its URL without scheme: git.clockmost.com/Meru/thoth.",
       "key_pattern": "^git\\.clockmost\\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$",
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A git repository, keyed by its URL without scheme: git.clockmost.com/Meru/thoth.",
@@ -323,6 +335,7 @@
     "route": {
       "description": "A hostname Caddy serves.",
       "key_pattern": "^([a-z0-9-]+\\.)+[a-z]{2,}$",
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A hostname Caddy serves.",
@@ -370,6 +383,7 @@
     "secret-set": {
       "description": "A set of secrets in Infisical, keyed `infisical/<project>/<environment>[/<path>]`. Never the values.",
       "key_pattern": "^infisical/[a-z0-9-]+/[a-z0-9-]+(/[A-Za-z0-9._-]+)*$",
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A set of secrets in Infisical, keyed `infisical/<project>/<environment>[/<path>]`. Never the values.",
@@ -381,6 +395,7 @@
     "sso-provider": {
       "description": "An Authentik provider (OIDC client or forward-auth), keyed authentik/<slug>.",
       "key_pattern": "^authentik/[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "An Authentik provider (OIDC client or forward-auth), keyed authentik/<slug>.",
@@ -392,6 +407,7 @@
     "volume": {
       "description": "Persistent storage, keyed `k8s/<cluster>/<namespace>/<claim>` or `libvirt/<host>/<disk>`.",
       "key_pattern": "^(k8s/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9.-]+|libvirt/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[A-Za-z0-9._-]+)$",
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "Persistent storage, keyed `k8s/<cluster>/<namespace>/<claim>` or `libvirt/<host>/<disk>`.",
@@ -403,6 +419,7 @@
     "workload": {
       "description": "A Kubernetes controller, keyed `<cluster>/<namespace>/<kind>/<name>`. Pods are live data, not tracked.",
       "key_pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?/(deployment|statefulset|daemonset|cronjob)/[a-z0-9.-]+$",
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A Kubernetes controller, keyed `<cluster>/<namespace>/<kind>/<name>`. Pods are live data, not tracked.",
@@ -419,6 +436,7 @@
         "device",
         "host"
       ],
+      "missing_after_days": 30,
       "schema": {
         "additionalProperties": false,
         "description": "A machine on a network segment.",
@@ -452,6 +470,7 @@
       "from": [
         "image"
       ],
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "The repository an image was built from.",
@@ -468,6 +487,7 @@
       "from": [
         "network"
       ],
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A port forward: the network sends outside traffic to this machine.",
@@ -510,6 +530,7 @@
         "bot",
         "person"
       ],
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A person or bot uses this login (linked on an exact email match).",
@@ -526,6 +547,7 @@
       "from": [
         "host"
       ],
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A VM runs on this hypervisor host.",
@@ -546,6 +568,7 @@
         "host",
         "person"
       ],
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "Membership: of a group, or a host's of a cluster.",
@@ -583,6 +606,7 @@
       "from": [
         "workload"
       ],
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A workload mounts this volume.",
@@ -618,6 +642,7 @@
       "from": [
         "*"
       ],
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "Who answers for it. Ownership is always this relation, never a column.",
@@ -642,6 +667,7 @@
         "volume",
         "workload"
       ],
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A piece of an app.",
@@ -658,6 +684,7 @@
       "from": [
         "workload"
       ],
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A workload that can only run on this host (USB devices, GPUs).",
@@ -674,6 +701,7 @@
       "from": [
         "route"
       ],
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "Where a route sends its traffic.",
@@ -708,6 +736,7 @@
       "from": [
         "workload"
       ],
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "A workload runs this image.",
@@ -724,6 +753,7 @@
       "from": [
         "volume"
       ],
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "The disk this volume lives on (local-path is one node's disk; a VM disk is its hypervisor's).",
@@ -741,6 +771,7 @@
         "app",
         "workload"
       ],
+      "missing_after_days": null,
       "schema": {
         "additionalProperties": false,
         "description": "Needs it to work: a database, secrets, a login provider, another app.",
