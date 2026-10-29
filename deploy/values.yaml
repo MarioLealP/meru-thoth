@@ -1,0 +1,43 @@
+# Thoth's deployment, rendered by Argo CD with Meru's nuwa-app chart (>= 0.2.0). CI writes the image after each build.
+name: thoth
+owner: mario
+image:
+  repository: zot.clockmost.com/meru/thoth
+  digest: sha256:131dfa3cbc740d032138bfbe85160f5093059b02f349697be472210d451cf4e2
+  tag: "78839e5ce671"
+port: 8080
+heartbeat:
+  readyPath: /ready # the database answers and every stored row fits the catalog
+env:
+  # No password in the URL: libpq takes PGUSER/PGPASSWORD from the environment (below).
+  THOTH_DATABASE_URL: postgresql+psycopg://thoth-db-rw.thoth.svc:5432/thoth?sslmode=require
+  THOTH_ISSUER: https://auth.clockmost.com/application/o/thoth/
+  THOTH_JWKS_URL: https://auth.clockmost.com/application/o/thoth/jwks/
+  THOTH_AUDIENCE: thoth
+  THOTH_PERMISSIONS_CLAIM: thoth_permissions
+# The running app's login: rows only, never history or schema (D58).
+secretEnv:
+  PGUSER:
+    secret: thoth-db-runtime
+    key: username
+  PGPASSWORD:
+    secret: thoth-db-runtime
+    key: password
+# Migrations log in as the schema owner (CNPG's bootstrap owner Secret).
+migrate:
+  enabled: true
+  command: [.venv/bin/alembic]
+  args: [upgrade, head]
+  secretEnv:
+    PGUSER:
+      secret: thoth-db-app
+      key: username
+    PGPASSWORD:
+      secret: thoth-db-app
+      key: password
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 384Mi

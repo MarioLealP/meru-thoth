@@ -1,8 +1,9 @@
 # Thoth's CI on Meru's runner (Sindri, namespace thoth-build: each job is its own pod).
 # checks: every check scripts/check.sh runs locally - lint, format, types, tests against a real Postgres (a service
 # container, the version CNPG runs), and the API contract against main. No credentials in this pod.
-# build: after the checks. Pull requests: build only. Main: build, push to Zot, sign with Thoth's cosign key.
-# Rebuild main by hand with "Run workflow" (workflow_dispatch).
+# build: after the checks. Pull requests: build only. Main: build, push to Zot, sign with Thoth's cosign key, then
+# write the new digest into deploy/values.yaml - Argo CD rolls that out (migrations first). The deploy commit itself
+# doesn't trigger a run (paths-ignore); rebuild main by hand with "Run workflow" (workflow_dispatch).
 name: ci
 on:
   pull_request:
@@ -86,3 +87,10 @@ jobs:
           COSIGN_PASSWORD="$(cat /secrets/cosign/password)" /tmp/cosign sign --yes \
             --key /secrets/cosign/cosign.key --use-signing-config=false --tlog-upload=false \
             --new-bundle-format=false --allow-http-registry "$IMAGE@$DIGEST"
+
+      - name: deploy
+        if: gitea.ref == 'refs/heads/main'
+        run: |
+          sed -i "s|^  digest: .*|  digest: $DIGEST|; s|^  tag: .*|  tag: \"$TAG\"|" deploy/values.yaml
+          git -c user.name=sindri -c user.email=sindri@clockmost.com commit --quiet -am "deploy: thoth $TAG"
+          git push --quiet origin HEAD:main
