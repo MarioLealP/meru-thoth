@@ -1,0 +1,759 @@
+{
+  "items": {
+    "account": {
+      "description": "A login on one system, keyed `<system>/<login>`: authentik/mario, linux/clockmost/benylin, gitea/MarioGLealP. Every account should resolve to a person or a bot - one that doesn't is unexplained.",
+      "key_pattern": "^(authentik|gitea|zot|linux/[a-z0-9]([a-z0-9-]*[a-z0-9])?|k8s/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?)/[A-Za-z0-9._+@-]+$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "A login on one system, keyed `<system>/<login>`: authentik/mario, linux/clockmost/benylin, gitea/MarioGLealP.\n\nEvery account should resolve to a person or a bot - one that doesn't is unexplained.",
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Email",
+            "x-owners": [
+              "authentik-sync",
+              "gitea-sync",
+              "host-scan"
+            ]
+          }
+        },
+        "title": "Account",
+        "type": "object"
+      }
+    },
+    "app": {
+      "description": "A Meru app: the unit someone requests, owns and retires. Its parts point at it with part-of.",
+      "key_pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "A Meru app: the unit someone requests, owns and retires. Its parts point at it with part-of.",
+        "properties": {
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Template",
+            "x-owners": [
+              "shikigami"
+            ]
+          }
+        },
+        "title": "App",
+        "type": "object"
+      }
+    },
+    "bot": {
+      "description": "A non-human identity, one per job, owned by a person. Its accounts link to it by its email.",
+      "key_pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "A non-human identity, one per job, owned by a person. Its accounts link to it by its email.",
+        "properties": {
+          "email": {
+            "pattern": "^svc\\+[a-z0-9]([a-z0-9-]*[a-z0-9])?@clockmost\\.com$",
+            "title": "Email",
+            "type": "string",
+            "x-owners": [
+              "shikigami",
+              "manual"
+            ]
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "string",
+            "x-owners": [
+              "shikigami",
+              "manual"
+            ]
+          }
+        },
+        "required": [
+          "email",
+          "purpose"
+        ],
+        "title": "Bot",
+        "type": "object"
+      }
+    },
+    "cluster": {
+      "description": "A Kubernetes cluster. Hosts join it with member-of (role server or agent).",
+      "key_pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "A Kubernetes cluster. Hosts join it with member-of (role server or agent).",
+        "properties": {
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Version",
+            "x-owners": [
+              "k8s-scan"
+            ]
+          }
+        },
+        "title": "Cluster",
+        "type": "object"
+      }
+    },
+    "database": {
+      "description": "A database in a CNPG cluster, keyed `<cluster>/<namespace>/<cnpg cluster>/<database>`.",
+      "key_pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9_]+$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "A database in a CNPG cluster, keyed `<cluster>/<namespace>/<cnpg cluster>/<database>`.",
+        "properties": {},
+        "title": "Database",
+        "type": "object"
+      }
+    },
+    "device": {
+      "description": "Anything on the network that isn't a host we manage (phones, printers, IoT), keyed by MAC address.",
+      "key_pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "Anything on the network that isn't a host we manage (phones, printers, IoT), keyed by MAC address.",
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label",
+            "x-owners": [
+              "manual"
+            ]
+          }
+        },
+        "title": "Device",
+        "type": "object"
+      }
+    },
+    "group": {
+      "description": "A group on one system, keyed `<system>/<name>`: authentik/clockmost-admins, linux/clockmost/wheel.",
+      "key_pattern": "^(authentik|gitea|zot|linux/[a-z0-9]([a-z0-9-]*[a-z0-9])?|k8s/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?)/[A-Za-z0-9._+@-]+$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "A group on one system, keyed `<system>/<name>`: authentik/clockmost-admins, linux/clockmost/wheel.",
+        "properties": {},
+        "title": "Group",
+        "type": "object"
+      }
+    },
+    "host": {
+      "description": "An operating system instance - a physical machine or a VM - keyed by its short hostname.",
+      "key_pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "An operating system instance - a physical machine or a VM - keyed by its short hostname.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "physical",
+              "vm"
+            ],
+            "title": "Kind",
+            "type": "string",
+            "x-owners": [
+              "host-scan"
+            ]
+          },
+          "os": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Os",
+            "x-owners": [
+              "host-scan"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "Host",
+        "type": "object"
+      }
+    },
+    "image": {
+      "description": "A container image, keyed by digest: zot.clockmost.com/meru/echo@sha256:...",
+      "key_pattern": "^[a-z0-9.:-]+(/[a-z0-9._-]+)+@sha256:[0-9a-f]{64}$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "A container image, keyed by digest: zot.clockmost.com/meru/echo@sha256:...",
+        "properties": {},
+        "title": "Image",
+        "type": "object"
+      }
+    },
+    "network": {
+      "description": "A network segment, keyed `<where>/<name>`: r7000/br0 (the LAN), r7000/br1 (IoT), k8s/clockmost.",
+      "key_pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9.-]+$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "A network segment, keyed `<where>/<name>`: r7000/br0 (the LAN), r7000/br1 (IoT), k8s/clockmost.",
+        "properties": {
+          "cidr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cidr",
+            "x-owners": [
+              "r7000-scan",
+              "k8s-scan"
+            ]
+          },
+          "kind": {
+            "enum": [
+              "lan",
+              "vlan",
+              "k8s"
+            ],
+            "title": "Kind",
+            "type": "string",
+            "x-owners": [
+              "r7000-scan",
+              "k8s-scan"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "Network",
+        "type": "object"
+      }
+    },
+    "person": {
+      "description": "A human. Accounts link to a person only on an exact email match; names are for display and search.",
+      "key_pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "A human. Accounts link to a person only on an exact email match; names are for display and search.",
+        "properties": {
+          "emails": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Emails",
+            "type": "array",
+            "x-owners": [
+              "manual"
+            ]
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "array",
+            "x-owners": [
+              "manual"
+            ]
+          }
+        },
+        "title": "Person",
+        "type": "object"
+      }
+    },
+    "repo": {
+      "description": "A git repository, keyed by its URL without scheme: git.clockmost.com/Meru/thoth.",
+      "key_pattern": "^git\\.clockmost\\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "A git repository, keyed by its URL without scheme: git.clockmost.com/Meru/thoth.",
+        "properties": {
+          "private": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Private",
+            "x-owners": [
+              "gitea-sync"
+            ]
+          }
+        },
+        "title": "Repo",
+        "type": "object"
+      }
+    },
+    "route": {
+      "description": "A hostname Caddy serves.",
+      "key_pattern": "^([a-z0-9-]+\\.)+[a-z]{2,}$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "A hostname Caddy serves.",
+        "properties": {
+          "auth": {
+            "anyOf": [
+              {
+                "enum": [
+                  "authentik",
+                  "none"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Auth",
+            "x-owners": [
+              "shikigami",
+              "caddy-scan"
+            ]
+          },
+          "tls": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tls",
+            "x-owners": [
+              "caddy-scan"
+            ]
+          }
+        },
+        "title": "Route",
+        "type": "object"
+      }
+    },
+    "secret-set": {
+      "description": "A set of secrets in Infisical, keyed `infisical/<project>/<environment>[/<path>]`. Never the values.",
+      "key_pattern": "^infisical/[a-z0-9-]+/[a-z0-9-]+(/[A-Za-z0-9._-]+)*$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "A set of secrets in Infisical, keyed `infisical/<project>/<environment>[/<path>]`. Never the values.",
+        "properties": {},
+        "title": "SecretSet",
+        "type": "object"
+      }
+    },
+    "sso-provider": {
+      "description": "An Authentik provider (OIDC client or forward-auth), keyed authentik/<slug>.",
+      "key_pattern": "^authentik/[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "An Authentik provider (OIDC client or forward-auth), keyed authentik/<slug>.",
+        "properties": {},
+        "title": "SsoProvider",
+        "type": "object"
+      }
+    },
+    "volume": {
+      "description": "Persistent storage, keyed `k8s/<cluster>/<namespace>/<claim>` or `libvirt/<host>/<disk>`.",
+      "key_pattern": "^(k8s/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9.-]+|libvirt/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[A-Za-z0-9._-]+)$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "Persistent storage, keyed `k8s/<cluster>/<namespace>/<claim>` or `libvirt/<host>/<disk>`.",
+        "properties": {},
+        "title": "Volume",
+        "type": "object"
+      }
+    },
+    "workload": {
+      "description": "A Kubernetes controller, keyed `<cluster>/<namespace>/<kind>/<name>`. Pods are live data, not tracked.",
+      "key_pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?/(deployment|statefulset|daemonset|cronjob)/[a-z0-9.-]+$",
+      "schema": {
+        "additionalProperties": false,
+        "description": "A Kubernetes controller, keyed `<cluster>/<namespace>/<kind>/<name>`. Pods are live data, not tracked.",
+        "properties": {},
+        "title": "Workload",
+        "type": "object"
+      }
+    }
+  },
+  "relations": {
+    "attached-to": {
+      "description": "A machine on a network segment.",
+      "from": [
+        "device",
+        "host"
+      ],
+      "schema": {
+        "additionalProperties": false,
+        "description": "A machine on a network segment.",
+        "properties": {
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ip",
+            "x-owners": [
+              "r7000-scan",
+              "host-scan"
+            ]
+          }
+        },
+        "title": "AttachedTo",
+        "type": "object"
+      },
+      "to": [
+        "network"
+      ]
+    },
+    "built-from": {
+      "description": "The repository an image was built from.",
+      "from": [
+        "image"
+      ],
+      "schema": {
+        "additionalProperties": false,
+        "description": "The repository an image was built from.",
+        "properties": {},
+        "title": "BuiltFrom",
+        "type": "object"
+      },
+      "to": [
+        "repo"
+      ]
+    },
+    "exposes": {
+      "description": "A port forward: the network sends outside traffic to this machine.",
+      "from": [
+        "network"
+      ],
+      "schema": {
+        "additionalProperties": false,
+        "description": "A port forward: the network sends outside traffic to this machine.",
+        "properties": {
+          "port": {
+            "title": "Port",
+            "type": "integer",
+            "x-owners": [
+              "r7000-scan"
+            ]
+          },
+          "protocol": {
+            "enum": [
+              "tcp",
+              "udp",
+              "both"
+            ],
+            "title": "Protocol",
+            "type": "string",
+            "x-owners": [
+              "r7000-scan"
+            ]
+          }
+        },
+        "required": [
+          "port",
+          "protocol"
+        ],
+        "title": "Exposes",
+        "type": "object"
+      },
+      "to": [
+        "device",
+        "host"
+      ]
+    },
+    "has-account": {
+      "description": "A person or bot uses this login (linked on an exact email match).",
+      "from": [
+        "bot",
+        "person"
+      ],
+      "schema": {
+        "additionalProperties": false,
+        "description": "A person or bot uses this login (linked on an exact email match).",
+        "properties": {},
+        "title": "HasAccount",
+        "type": "object"
+      },
+      "to": [
+        "account"
+      ]
+    },
+    "hosted-on": {
+      "description": "A VM runs on this hypervisor host.",
+      "from": [
+        "host"
+      ],
+      "schema": {
+        "additionalProperties": false,
+        "description": "A VM runs on this hypervisor host.",
+        "properties": {},
+        "title": "HostedOn",
+        "type": "object"
+      },
+      "to": [
+        "host"
+      ]
+    },
+    "member-of": {
+      "description": "Membership: of a group, or a host's of a cluster.",
+      "from": [
+        "account",
+        "bot",
+        "group",
+        "host",
+        "person"
+      ],
+      "schema": {
+        "additionalProperties": false,
+        "description": "Membership: of a group, or a host's of a cluster.",
+        "properties": {
+          "role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "server",
+                  "agent"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Role",
+            "x-owners": [
+              "k8s-scan"
+            ]
+          }
+        },
+        "title": "MemberOf",
+        "type": "object"
+      },
+      "to": [
+        "cluster",
+        "group"
+      ]
+    },
+    "mounts": {
+      "description": "A workload mounts this volume.",
+      "from": [
+        "workload"
+      ],
+      "schema": {
+        "additionalProperties": false,
+        "description": "A workload mounts this volume.",
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string",
+            "x-owners": [
+              "k8s-scan"
+            ]
+          },
+          "read_only": {
+            "default": false,
+            "title": "Read Only",
+            "type": "boolean",
+            "x-owners": [
+              "k8s-scan"
+            ]
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "Mounts",
+        "type": "object"
+      },
+      "to": [
+        "volume"
+      ]
+    },
+    "owned-by": {
+      "description": "Who answers for it. Ownership is always this relation, never a column.",
+      "from": [
+        "*"
+      ],
+      "schema": {
+        "additionalProperties": false,
+        "description": "Who answers for it. Ownership is always this relation, never a column.",
+        "properties": {},
+        "title": "OwnedBy",
+        "type": "object"
+      },
+      "to": [
+        "group",
+        "person"
+      ]
+    },
+    "part-of": {
+      "description": "A piece of an app.",
+      "from": [
+        "database",
+        "image",
+        "repo",
+        "route",
+        "secret-set",
+        "sso-provider",
+        "volume",
+        "workload"
+      ],
+      "schema": {
+        "additionalProperties": false,
+        "description": "A piece of an app.",
+        "properties": {},
+        "title": "PartOf",
+        "type": "object"
+      },
+      "to": [
+        "app"
+      ]
+    },
+    "pinned-to": {
+      "description": "A workload that can only run on this host (USB devices, GPUs).",
+      "from": [
+        "workload"
+      ],
+      "schema": {
+        "additionalProperties": false,
+        "description": "A workload that can only run on this host (USB devices, GPUs).",
+        "properties": {},
+        "title": "PinnedTo",
+        "type": "object"
+      },
+      "to": [
+        "host"
+      ]
+    },
+    "points-to": {
+      "description": "Where a route sends its traffic.",
+      "from": [
+        "route"
+      ],
+      "schema": {
+        "additionalProperties": false,
+        "description": "Where a route sends its traffic.",
+        "properties": {
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Port",
+            "x-owners": [
+              "shikigami",
+              "caddy-scan"
+            ]
+          }
+        },
+        "title": "PointsTo",
+        "type": "object"
+      },
+      "to": [
+        "host",
+        "workload"
+      ]
+    },
+    "runs": {
+      "description": "A workload runs this image.",
+      "from": [
+        "workload"
+      ],
+      "schema": {
+        "additionalProperties": false,
+        "description": "A workload runs this image.",
+        "properties": {},
+        "title": "Runs",
+        "type": "object"
+      },
+      "to": [
+        "image"
+      ]
+    },
+    "stored-on": {
+      "description": "The disk this volume lives on (local-path is one node's disk; a VM disk is its hypervisor's).",
+      "from": [
+        "volume"
+      ],
+      "schema": {
+        "additionalProperties": false,
+        "description": "The disk this volume lives on (local-path is one node's disk; a VM disk is its hypervisor's).",
+        "properties": {},
+        "title": "StoredOn",
+        "type": "object"
+      },
+      "to": [
+        "host"
+      ]
+    },
+    "uses": {
+      "description": "Needs it to work: a database, secrets, a login provider, another app.",
+      "from": [
+        "app",
+        "workload"
+      ],
+      "schema": {
+        "additionalProperties": false,
+        "description": "Needs it to work: a database, secrets, a login provider, another app.",
+        "properties": {},
+        "title": "Uses",
+        "type": "object"
+      },
+      "to": [
+        "app",
+        "database",
+        "secret-set",
+        "sso-provider"
+      ]
+    }
+  }
+}

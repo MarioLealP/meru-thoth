@@ -9,8 +9,8 @@ from alembic.config import Config
 from sqlalchemy import Engine, text
 from sqlmodel import Session
 
+from thoth.catalog import check
 from thoth.db import make_engine
-from thoth.models import ItemType
 
 
 def alembic_config() -> Config:
@@ -36,7 +36,7 @@ def db(engine: Engine) -> Engine:
         cfg.attributes["connection"] = connection
         command.upgrade(cfg, "head")
     with Session(engine) as session:
-        session.add(ItemType(name="host", description="a machine", key_pattern=r"^[a-z0-9-]+$"))
+        check.sync(session)
         session.commit()
     return engine
 

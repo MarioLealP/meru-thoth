@@ -3,6 +3,17 @@
 extends: [[spectral:oas, recommended]]
 
 rules:
+  camel-case-properties: off  # replaced by thoth-properties-snake-case (D47)
+
+  thoth-properties-snake-case:
+    description: Schema properties are snake_case, like the Python that produces them.
+    severity: error
+    given: $.components.schemas[*].properties[*]~
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-z0-9]*(_[a-z0-9]+)*$"
+
   thoth-paths-kebab-case:
     description: Paths are lower-kebab-case, parameters snake_case.
     severity: error
@@ -11,6 +22,15 @@ rules:
       function: pattern
       functionOptions:
         match: "^(/([a-z0-9]+(-[a-z0-9]+)*|\\{[a-z_]+\\}))+$"
+
+  thoth-paths-versioned:
+    description: Client routes live under /v1/ (a later /v2 can change shapes without breaking /v1); only the probes don't.
+    severity: error
+    given: $.paths[*]~
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(/v[0-9]+/.+|/heartbeat|/ready)$"
 
   thoth-errors-are-problems:
     description: Every operation documents its errors as application/problem+json (one error shape for clients).

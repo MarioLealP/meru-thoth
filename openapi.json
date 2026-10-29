@@ -1,8 +1,79 @@
 {
   "components": {
     "schemas": {
-      "Heartbeat": {
-        "description": "The process is alive.",
+      "Catalog": {
+        "description": "Every item and relation type, by name.",
+        "examples": [
+          {
+            "items": {
+              "host": {
+                "description": "An operating system instance.",
+                "key_pattern": "^[a-z0-9-]+$",
+                "schema": {}
+              }
+            },
+            "relations": {
+              "mounts": {
+                "description": "A workload mounts a volume.",
+                "from": [
+                  "workload"
+                ],
+                "schema": {},
+                "to": [
+                  "volume"
+                ]
+              }
+            }
+          }
+        ],
+        "properties": {
+          "items": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ItemTypeOut"
+            },
+            "examples": [
+              {
+                "host": {
+                  "description": "An operating system instance.",
+                  "key_pattern": "^[a-z0-9-]+$",
+                  "schema": {}
+                }
+              }
+            ],
+            "title": "Items",
+            "type": "object"
+          },
+          "relations": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RelationTypeOut"
+            },
+            "examples": [
+              {
+                "mounts": {
+                  "description": "A workload mounts a volume.",
+                  "from": [
+                    "workload"
+                  ],
+                  "schema": {},
+                  "to": [
+                    "volume"
+                  ]
+                }
+              }
+            ],
+            "title": "Relations",
+            "type": "object"
+          }
+        },
+        "required": [
+          "items",
+          "relations"
+        ],
+        "title": "Catalog",
+        "type": "object"
+      },
+      "Health": {
+        "description": "Thoth's state.",
         "properties": {
           "status": {
             "default": "ok",
@@ -13,7 +84,46 @@
             "type": "string"
           }
         },
-        "title": "Heartbeat",
+        "title": "Health",
+        "type": "object"
+      },
+      "ItemTypeOut": {
+        "description": "An item type.",
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "key_pattern": {
+            "examples": [
+              "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+            ],
+            "title": "Key Pattern",
+            "type": "string"
+          },
+          "schema": {
+            "additionalProperties": true,
+            "examples": [
+              {
+                "properties": {
+                  "os": {
+                    "x-owners": [
+                      "host-scan"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "Schema",
+            "type": "object"
+          }
+        },
+        "required": [
+          "description",
+          "key_pattern",
+          "schema"
+        ],
+        "title": "ItemTypeOut",
         "type": "object"
       },
       "Problem": {
@@ -89,6 +199,63 @@
         ],
         "title": "Problem",
         "type": "object"
+      },
+      "RelationTypeOut": {
+        "description": "A relation type: which item types may sit at each end (`*` = any).",
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "from": {
+            "examples": [
+              [
+                "workload"
+              ]
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "From",
+            "type": "array"
+          },
+          "schema": {
+            "additionalProperties": true,
+            "examples": [
+              {
+                "properties": {
+                  "path": {
+                    "x-owners": [
+                      "k8s-scan"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "Schema",
+            "type": "object"
+          },
+          "to": {
+            "examples": [
+              [
+                "volume"
+              ]
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "To",
+            "type": "array"
+          }
+        },
+        "required": [
+          "description",
+          "from",
+          "to",
+          "schema"
+        ],
+        "title": "RelationTypeOut",
+        "type": "object"
       }
     }
   },
@@ -106,14 +273,14 @@
   "paths": {
     "/heartbeat": {
       "get": {
-        "description": "Liveness: the process answers. Says nothing about the database (readiness will).",
+        "description": "Liveness: the process answers. Says nothing about the database.",
         "operationId": "heartbeat",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Heartbeat"
+                  "$ref": "#/components/schemas/Health"
                 }
               }
             },
@@ -142,6 +309,84 @@
           "health"
         ]
       }
+    },
+    "/ready": {
+      "get": {
+        "description": "Readiness: the database answers, and (checked once per process) every stored row fits this version's catalog.\n\nOnly then is the catalog copied into its tables - so a version whose catalog change left misfit rows never\ngoes live, and the old one keeps serving.",
+        "operationId": "ready",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "example": {
+                  "status": 404,
+                  "title": "Not Found",
+                  "type": "about:blank"
+                }
+              }
+            },
+            "description": "Any error, as problem details."
+          }
+        },
+        "summary": "Ready",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/v1/catalog": {
+      "get": {
+        "description": "Every item and relation type: description, key pattern (items), allowed ends (relations), and the JSON Schema\nof its attributes - each field's `x-owners` lists the sources that may report it, first one wins.",
+        "operationId": "get_catalog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalog"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "example": {
+                  "status": 404,
+                  "title": "Not Found",
+                  "type": "about:blank"
+                }
+              }
+            },
+            "description": "Any error, as problem details."
+          }
+        },
+        "summary": "Get Catalog",
+        "tags": [
+          "catalog"
+        ]
+      }
     }
   },
   "servers": [
@@ -154,6 +399,10 @@
     {
       "description": "Is Thoth up.",
       "name": "health"
+    },
+    {
+      "description": "Which item and relation types exist, and what they hold.",
+      "name": "catalog"
     }
   ]
 }

@@ -20,8 +20,10 @@ uv run ty check
 step pytest
 THOTH_TEST_DATABASE_URL=${THOTH_TEST_DATABASE_URL:-$(scripts/test-db.sh)} uv run pytest -q
 
-step "openapi.json up to date"
-uv run scripts/openapi.py --check
+step "openapi.json and catalog.json up to date"
+uv run scripts/generate.py --check
+step "catalog: breaking changes against $base"
+uv run scripts/catalog_breaking.py "$base"
 step "vacuum (house rules, .spectral.yaml)"
 podman run --rm -v "$PWD:/work:Z,ro" -w /work "$VACUUM" lint -r .spectral.yaml -n warn -d openapi.json
 step "oasdiff: breaking changes against $base"

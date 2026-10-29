@@ -26,13 +26,29 @@ The rules live in the database (Postgres triggers), so no code path can skip the
 - history is append-only, and rows are never deleted - things are `retired`. Only the yearly purge removes rows that
   have been retired for over two years, after exporting them.
 
+## The catalog
+
+Every item and relation type is a Pydantic class in `src/thoth/catalog/`: its key format, its attributes, and for
+each attribute the sources allowed to report it, in precedence order (`owned_by(Source.SHIKIGAMI, Source.CADDY)`:
+what was requested wins over what Caddy shows). A source may only send the fields it owns.
+
+Changing it: new types and new optional fields just ship. Anything that breaks stored data (a removed or retyped
+field, a newly required one, a moved owner, a changed key format) fails CI until the PR carries a data migration and
+a `Catalog-Break: <why>` commit trailer. And a new version only reports ready once every stored row fits its catalog,
+so a bad change never replaces the running one.
+
+## API
+
+Client routes live under `/v1/`, so a later `/v2` can change shapes while `/v1` keeps working. Only the probes
+(`/heartbeat`, `/ready`) sit outside.
+
 ## Developing
 
 Python 3.15 with [uv](https://docs.astral.sh/uv/), and podman for the test database and the API linters.
 
 ```sh
 uv sync
-scripts/check.sh                   # everything CI runs: ruff, ty, pytest, openapi.json, vacuum, oasdiff
+scripts/check.sh                   # everything CI runs: ruff, ty, pytest, contracts, vacuum, oasdiff
 scripts/test-db.sh                 # a throwaway Postgres 16 - prints its URL
 scripts/test-db.sh stop
 ```
@@ -47,7 +63,7 @@ uv run alembic revision --autogenerate -m "what changed"
 
 Read the generated migration before committing it. A test fails if the models and the migrations disagree.
 
-Changing the API: run `uv run scripts/openapi.py` and commit `openapi.json`. CI lints it against `.spectral.yaml`
+Changing the API or the catalog: run `uv run scripts/generate.py` and commit `openapi.json` and `catalog.json`. CI lints it against `.spectral.yaml`
 and fails on breaking changes against `main`.
 
 ## License
