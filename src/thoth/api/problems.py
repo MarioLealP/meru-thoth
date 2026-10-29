@@ -28,6 +28,14 @@ class Problem(BaseModel):
     )
 
 
+class ProblemError(Exception):
+    """Raise to answer with a full problem (e.g. with field-level `errors`), not just a status and detail."""
+
+    def __init__(self, problem: Problem) -> None:
+        super().__init__(problem.title)
+        self.problem = problem
+
+
 def _respond(problem: Problem) -> JSONResponse:
     return JSONResponse(problem.model_dump(exclude_none=True), status_code=problem.status, media_type=MEDIA_TYPE)
 
@@ -35,6 +43,11 @@ def _respond(problem: Problem) -> JSONResponse:
 async def _http_error(_: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, HTTPException)
     return _respond(Problem(title=HTTPStatus(exc.status_code).phrase, status=exc.status_code, detail=exc.detail))
+
+
+async def _problem_error(_: Request, exc: Exception) -> JSONResponse:
+    assert isinstance(exc, ProblemError)
+    return _respond(exc.problem)
 
 
 async def _validation_error(_: Request, exc: Exception) -> JSONResponse:
@@ -46,6 +59,7 @@ async def _validation_error(_: Request, exc: Exception) -> JSONResponse:
 def install(app: FastAPI) -> None:
     app.add_exception_handler(HTTPException, _http_error)
     app.add_exception_handler(RequestValidationError, _validation_error)
+    app.add_exception_handler(ProblemError, _problem_error)
 
 
 # For `responses=` on routes, so the OpenAPI spec documents the shape.

@@ -1,24 +1,12 @@
-from collections.abc import Iterator
 from datetime import UTC, datetime
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, func
 from sqlmodel import Session, select
 
-from thoth.api import app
-from thoth.api.app import get_engine
 from thoth.catalog import ITEMS, RELATIONS
 from thoth.db import write_as
 from thoth.models import Item, ItemObservation, ItemType, RelationType
-
-
-@pytest.fixture
-def client(db: Engine) -> Iterator[TestClient]:
-    app.dependency_overrides[get_engine] = lambda: db
-    app.state.catalog_checked = False
-    yield TestClient(app)
-    app.dependency_overrides.clear()
 
 
 def add_host(db: Engine, key: str, attributes: dict, observed: dict | None = None) -> None:
@@ -30,8 +18,8 @@ def add_host(db: Engine, key: str, attributes: dict, observed: dict | None = Non
         session.add(item)
         session.flush()
         if observed is not None:
-            session.add(ItemObservation(item_id=item.id, source="host-scan", attributes=observed, first_seen=now,
-                                        last_seen=now))  # fmt: skip
+            session.add(ItemObservation(item_id=item.id, source="host-scan", scope=key.lower(), attributes=observed,
+                                        first_seen=now, last_seen=now))  # fmt: skip
         session.commit()
 
 
@@ -58,7 +46,7 @@ def test_misfit_rows_keep_it_unready(client: TestClient, db: Engine) -> None:
     assert response.status_code == 503
     detail = response.json()["detail"]
     assert "host Bad_Key: key doesn't match" in detail
-    assert "host clockmost, from host-scan: kind:" in detail
+    assert "host clockmost, from host-scan@clockmost: kind:" in detail
     assert client.get("/heartbeat").status_code == 200  # alive, just not ready
 
 

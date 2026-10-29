@@ -12,10 +12,13 @@ TIMESTAMP = sa.DateTime(timezone=True)
 
 
 class Status(StrEnum):
-    PLANNED = "planned"  # declared (by a request), not seen yet
+    """planned -> active <-> missing; active -> decommissioning -> retired; missing -> retired (D53)."""
+
+    PLANNED = "planned"  # declared by a request, not seen yet
     ACTIVE = "active"
-    MISSING = "missing"  # a source stopped seeing it; the nightly verdict job decides
-    RETIRED = "retired"  # gone - kept forever (no deletes), with its history
+    MISSING = "missing"  # Anubis found it gone, but a request still declares it
+    DECOMMISSIONING = "decommissioning"  # Shikigami finished taking it down; Anubis confirms
+    RETIRED = "retired"  # gone - kept (no deletes), with its history. Only Anubis sets it.
 
 
 def status_type() -> sa.Enum:

@@ -40,13 +40,31 @@ class Relation(Tracked, table=True):
 
 
 class ItemObservation(SQLModel, table=True):
-    """What one source reported about one item - its slice. The API merges the slices into `item.attributes`, so
-    observations churn with every scan and are not versioned; the merged item is."""
+    """What one source reported about one item from one scope (where it looked) - its slice. The API merges the
+    slices into `item.attributes`, so observations churn with every scan and are not versioned; the merged item is.
+    """
 
     __tablename__ = "item_observation"
 
     item_id: UUID = Field(foreign_key="item.id", primary_key=True)
     source: str = Field(primary_key=True, max_length=64)
+    scope: str = Field(primary_key=True, max_length=128)
     attributes: dict[str, Any] = Field(default_factory=dict, sa_type=JSONB)
     first_seen: datetime = Field(sa_type=TIMESTAMP)
     last_seen: datetime = Field(sa_type=TIMESTAMP)
+    # Snapshots in a row from this source + scope without the item. At 3 it is on Anubis's list (D53).
+    missed_scans: int = Field(default=0, ge=0)
+
+
+class SnapshotRun(SQLModel, table=True):
+    """One snapshot, accepted or refused - a log, so Zabbix can see a source that stopped or broke (D51)."""
+
+    __tablename__ = "snapshot_run"
+    __table_args__ = (sa.Index("ix_snapshot_run_source_scope_at", "source", "scope", "at"),)
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    source: str = Field(max_length=64)
+    scope: str = Field(max_length=128)
+    at: datetime = Field(sa_type=TIMESTAMP)
+    accepted: bool
+    summary: dict[str, Any] = Field(default_factory=dict, sa_type=JSONB)  # counts, or the reasons it was refused

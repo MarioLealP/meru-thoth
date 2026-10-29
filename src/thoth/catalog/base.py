@@ -11,11 +11,14 @@ source may only send the fields it owns (its slice); a field that is required is
 must always send it. Declared-vs-observed drift compares the slices, not the merged value.
 """
 
+import re
+from copy import copy
 from enum import StrEnum
 from functools import cache
 from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
+from pydantic_core import PydanticUndefined
 
 
 class Source(StrEnum):
@@ -69,9 +72,12 @@ class Spec(BaseModel):
         return " ".join((cls.__doc__ or "").split())
 
     @classmethod
-    def slice_for(cls, source: str) -> type[BaseModel]:
-        """The model a source's report is validated against: only the fields it owns."""
-        return _slice(cls, source)
+    def slice_for(cls, source: str, *, strict: bool = False) -> type[BaseModel]:
+        """The model a source's slice is validated against: only the fields it owns.
+
+        strict (a new snapshot, D51): every owned field must be present - `null` where empty - since a missing field
+        means the scanner broke. Not strict (stored slices): fields added to the catalog since may be absent."""
+        return _slice(cls, source, strict)
 
     @classmethod
     def merge(cls, slices: dict[str, dict[str, Any]]) -> dict[str, Any]:
@@ -86,15 +92,24 @@ class Spec(BaseModel):
 
 
 @cache
-def _slice(spec: type[Spec], source: str) -> type[BaseModel]:
-    fields: dict[str, Any] = {
-        name: (info.annotation, info) for name, info in spec.model_fields.items() if source in spec.owners(name)
-    }
-    return create_model(f"{spec.__name__}From{source.title().replace('-', '')}", __config__=spec.model_config, **fields)
+def _slice(spec: type[Spec], source: str, strict: bool) -> type[BaseModel]:
+    fields: dict[str, Any] = {}
+    for name, info in spec.model_fields.items():
+        if source in spec.owners(name):
+            if strict:
+                info = copy(info)
+                info.default, info.default_factory = PydanticUndefined, None
+            fields[name] = (info.annotation, info)
+    name = f"{spec.__name__}From{source.title().replace('-', '')}{'Strict' if strict else ''}"
+    return create_model(name, __config__=spec.model_config, **fields)
 
 
 class ItemSpec(Spec):
     key_pattern: ClassVar[str]  # every source must spell keys this way, so they meet on the same item
+
+    @classmethod
+    def key_ok(cls, key: str) -> bool:
+        return re.fullmatch(cls.key_pattern, key) is not None
 
 
 class RelationSpec(Spec):

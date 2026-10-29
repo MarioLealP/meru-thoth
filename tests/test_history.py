@@ -150,3 +150,17 @@ def test_relation_to_itself_is_refused(session: Session) -> None:
                 type="backs-up-to", from_item=host.id, to_item=host.id, source="test", first_seen=now(), last_seen=now()
             ),
         )
+
+
+def test_only_anubis_retires(session: Session) -> None:
+    host = new_host()
+    add(session, host)
+    host.status = Status.RETIRED
+    with pytest.raises(DBAPIError, match="only anubis retires"):
+        add(session, host, reason="looks gone to me")
+    session.rollback()
+    write_as(session, "anubis", "nightly verdict: gone")
+    session.exec(text("update item set status = 'retired'"))  # ty: ignore[no-matching-overload]
+    session.commit()
+    session.refresh(host)
+    assert host.status == Status.RETIRED

@@ -6,9 +6,12 @@ from collections.abc import Iterator
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
 from sqlmodel import Session
 
+from thoth.api import app
+from thoth.api.deps import get_engine
 from thoth.catalog import check
 from thoth.db import make_engine
 
@@ -45,3 +48,12 @@ def db(engine: Engine) -> Engine:
 def session(db: Engine) -> Iterator[Session]:
     with Session(db, expire_on_commit=False) as session:
         yield session
+
+
+@pytest.fixture
+def client(db: Engine) -> Iterator[TestClient]:
+    """The API on a fresh database."""
+    app.dependency_overrides[get_engine] = lambda: db
+    app.state.catalog_checked = False
+    yield TestClient(app)
+    app.dependency_overrides.clear()

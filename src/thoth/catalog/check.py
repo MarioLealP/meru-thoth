@@ -5,7 +5,6 @@ pod stays not-ready: Kubernetes keeps the old version serving, and the reason is
 Loads everything into memory - fine at home-lab size (thousands of rows).
 """
 
-import re
 from collections import defaultdict
 from typing import Any
 
@@ -15,14 +14,15 @@ from sqlmodel import Session, select
 
 from thoth.catalog import ANY_TYPE, ITEMS, RELATIONS
 from thoth.models import Item, ItemObservation, ItemType, Relation, RelationType
+from thoth.snapshots import current_slices
 
 
 def problems(session: Session) -> list[str]:
     found = []
     items = {item.id: item for item in session.exec(select(Item))}
-    slices: dict[Any, dict[str, dict[str, Any]]] = defaultdict(dict)
+    observations: dict[Any, list[ItemObservation]] = defaultdict(list)
     for obs in session.exec(select(ItemObservation)):
-        slices[obs.item_id][obs.source] = obs.attributes
+        observations[obs.item_id].append(obs)
 
     for item in items.values():
         where = f"{item.type} {item.key}"
@@ -30,11 +30,12 @@ def problems(session: Session) -> list[str]:
         if spec is None:
             found.append(f"{where}: unknown type")
             continue
-        if not _matches(spec.key_pattern, item.key):
+        if not spec.key_ok(item.key):
             found.append(f"{where}: key doesn't match {spec.key_pattern}")
-        for source, data in slices[item.id].items():
-            found += [f"{where}, from {source}: {e}" for e in _invalid(spec.slice_for(source), data)]
-        if item.attributes != spec.merge(slices[item.id]):
+        for obs in observations[item.id]:
+            errors = _invalid(spec.slice_for(obs.source), obs.attributes)
+            found += [f"{where}, from {obs.source}@{obs.scope}: {e}" for e in errors]
+        if item.attributes != spec.merge(current_slices(observations[item.id])):
             found.append(f"{where}: attributes don't match the merged observations")
 
     for rel in session.exec(select(Relation)):
@@ -60,10 +61,6 @@ def sync(session: Session) -> None:
         row = {"name": name, "description": spec.description(), "from_types": sorted(spec.from_types),
                "to_types": sorted(spec.to_types), "attribute_schema": spec.model_json_schema()}  # fmt: skip
         session.exec(insert(RelationType).values(row).on_conflict_do_update(index_elements=["name"], set_=row))
-
-
-def _matches(pattern: str, key: str) -> bool:
-    return re.fullmatch(pattern, key) is not None
 
 
 def _invalid(model: Any, data: dict[str, Any]) -> list[str]:

@@ -1,4 +1,3 @@
-from functools import cache
 from importlib.metadata import version
 from typing import Annotated, Any
 
@@ -10,8 +9,9 @@ from sqlmodel import Session
 
 from thoth import catalog
 from thoth.api import problems
+from thoth.api.deps import get_engine
+from thoth.api.snapshots import router as snapshots_router
 from thoth.catalog import check
-from thoth.db import make_engine
 
 app = FastAPI(
     title="Thoth",
@@ -26,6 +26,7 @@ app = FastAPI(
     openapi_tags=[
         {"name": "health", "description": "Is Thoth up."},
         {"name": "catalog", "description": "Which item and relation types exist, and what they hold."},
+        {"name": "snapshots", "description": "Sources report what they see; Thoth works out what changed."},
     ],
     responses={"default": problems.PROBLEM_RESPONSE},
 )
@@ -35,11 +36,6 @@ app.state.catalog_checked = False
 # Every client-facing route lives under /v1: a future /v2 can change shapes while /v1 keeps working. Only the
 # probes (/heartbeat, /ready) sit outside - they're for Kubernetes and never change.
 v1 = APIRouter(prefix="/v1")
-
-
-@cache
-def get_engine() -> Engine:
-    return make_engine()
 
 
 class Health(BaseModel):
@@ -119,4 +115,5 @@ def get_catalog() -> Catalog:
     return Catalog.model_validate(catalog.export())
 
 
+v1.include_router(snapshots_router)
 app.include_router(v1)

@@ -256,6 +256,209 @@
         ],
         "title": "RelationTypeOut",
         "type": "object"
+      },
+      "ReportedItem": {
+        "description": "One thing, as a source sees it.",
+        "properties": {
+          "attributes": {
+            "additionalProperties": true,
+            "examples": [
+              {
+                "email": "lealmariop@gmail.com"
+              }
+            ],
+            "title": "Attributes",
+            "type": "object"
+          },
+          "key": {
+            "examples": [
+              "linux/clockmost-desktop/benylin"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "examples": [
+              "benylin"
+            ],
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "examples": [
+              "account"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "key",
+          "name",
+          "attributes"
+        ],
+        "title": "ReportedItem",
+        "type": "object"
+      },
+      "Snapshot": {
+        "description": "Everything a source sees from one scope - its whole picture, not a diff.",
+        "properties": {
+          "items": {
+            "examples": [
+              [
+                {
+                  "attributes": {
+                    "kind": "physical",
+                    "os": "CachyOS"
+                  },
+                  "key": "clockmost-desktop",
+                  "name": "clockmost-desktop",
+                  "type": "host"
+                },
+                {
+                  "attributes": {
+                    "email": "lealmariop@gmail.com"
+                  },
+                  "key": "linux/clockmost-desktop/benylin",
+                  "name": "benylin",
+                  "type": "account"
+                }
+              ]
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ReportedItem"
+            },
+            "maxItems": 20000,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Snapshot",
+        "type": "object"
+      },
+      "SnapshotRunOut": {
+        "description": "A source's latest snapshot: when, and whether it was accepted (with counts) or refused (with reasons).",
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "scope": {
+            "examples": [
+              "clockmost-desktop"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "source": {
+            "examples": [
+              "host-scan"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "examples": [
+              {
+                "changed": 1,
+                "created": 0,
+                "for_anubis": [],
+                "missed": 0,
+                "unchanged": 40
+              }
+            ],
+            "title": "Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "source",
+          "scope",
+          "at",
+          "accepted",
+          "summary"
+        ],
+        "title": "SnapshotRunOut",
+        "type": "object"
+      },
+      "Source": {
+        "description": "Everything that may write to Thoth. Each writes with its own identity, and only its slice.",
+        "enum": [
+          "shikigami",
+          "manual",
+          "authentik-sync",
+          "gitea-sync",
+          "host-scan",
+          "k8s-scan",
+          "r7000-scan",
+          "caddy-scan"
+        ],
+        "title": "Source",
+        "type": "string"
+      },
+      "Summary": {
+        "description": "What a snapshot changed.",
+        "properties": {
+          "changed": {
+            "examples": [
+              2
+            ],
+            "title": "Changed",
+            "type": "integer"
+          },
+          "created": {
+            "examples": [
+              1
+            ],
+            "title": "Created",
+            "type": "integer"
+          },
+          "for_anubis": {
+            "examples": [
+              [
+                "account linux/clockmost-desktop/olduser"
+              ]
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "For Anubis",
+            "type": "array"
+          },
+          "missed": {
+            "examples": [
+              1
+            ],
+            "title": "Missed",
+            "type": "integer"
+          },
+          "unchanged": {
+            "examples": [
+              40
+            ],
+            "title": "Unchanged",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "created",
+          "changed",
+          "unchanged",
+          "missed",
+          "for_anubis"
+        ],
+        "title": "Summary",
+        "type": "object"
       }
     }
   },
@@ -387,6 +590,166 @@
           "catalog"
         ]
       }
+    },
+    "/v1/snapshots": {
+      "get": {
+        "description": "The latest snapshot of every source + scope - Zabbix watches this for refused or stale sources.",
+        "operationId": "list_snapshots",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": [
+                  {
+                    "accepted": true,
+                    "at": "2026-10-29T12:00:00Z",
+                    "scope": "clockmost-desktop",
+                    "source": "host-scan",
+                    "summary": {
+                      "changed": 1,
+                      "created": 0,
+                      "for_anubis": [],
+                      "missed": 0,
+                      "unchanged": 40
+                    }
+                  }
+                ],
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SnapshotRunOut"
+                  },
+                  "title": "Response List Snapshots",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "example": {
+                  "status": 404,
+                  "title": "Not Found",
+                  "type": "about:blank"
+                }
+              }
+            },
+            "description": "Any error, as problem details."
+          }
+        },
+        "summary": "List Snapshots",
+        "tags": [
+          "snapshots"
+        ]
+      }
+    },
+    "/v1/snapshots/{source}/{scope}": {
+      "put": {
+        "description": "Report what `source` sees from `scope`. All or nothing: anything wrong refuses the whole snapshot and keeps\nthe last good data (every refusal is logged, for Zabbix). Things missing 3 snapshots in a row go to Anubis.",
+        "operationId": "put_snapshot",
+        "parameters": [
+          {
+            "description": "Who is reporting.",
+            "in": "path",
+            "name": "source",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Source",
+              "description": "Who is reporting.",
+              "examples": [
+                "host-scan"
+              ]
+            }
+          },
+          {
+            "description": "Where it looked: a machine or cluster name, or `all` for sources that see a whole system.",
+            "in": "path",
+            "name": "scope",
+            "required": true,
+            "schema": {
+              "description": "Where it looked: a machine or cluster name, or `all` for sources that see a whole system.",
+              "examples": [
+                "clockmost-desktop"
+              ],
+              "maxLength": 63,
+              "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+              "title": "Scope",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "items": [
+                  {
+                    "attributes": {
+                      "kind": "physical",
+                      "os": "CachyOS"
+                    },
+                    "key": "clockmost-desktop",
+                    "name": "clockmost-desktop",
+                    "type": "host"
+                  },
+                  {
+                    "attributes": {
+                      "email": "lealmariop@gmail.com"
+                    },
+                    "key": "linux/clockmost-desktop/benylin",
+                    "name": "benylin",
+                    "type": "account"
+                  }
+                ]
+              },
+              "schema": {
+                "$ref": "#/components/schemas/Snapshot"
+              }
+            }
+          },
+          "description": "The source's whole picture from this scope.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Summary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "example": {
+                  "status": 404,
+                  "title": "Not Found",
+                  "type": "about:blank"
+                }
+              }
+            },
+            "description": "Any error, as problem details."
+          }
+        },
+        "summary": "Put Snapshot",
+        "tags": [
+          "snapshots"
+        ]
+      }
     }
   },
   "servers": [
@@ -403,6 +766,10 @@
     {
       "description": "Which item and relation types exist, and what they hold.",
       "name": "catalog"
+    },
+    {
+      "description": "Sources report what they see; Thoth works out what changed.",
+      "name": "snapshots"
     }
   ]
 }

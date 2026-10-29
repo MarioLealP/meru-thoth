@@ -3,7 +3,7 @@
 from thoth.models.catalog import ItemType, RelationType
 from thoth.models.common import Status
 from thoth.models.history import ItemHistory, RelationHistory
-from thoth.models.inventory import Item, ItemObservation, Relation
+from thoth.models.inventory import Item, ItemObservation, Relation, SnapshotRun
 
 __all__ = [
     "Item",
@@ -13,5 +13,6 @@ __all__ = [
     "Relation",
     "RelationHistory",
     "RelationType",
+    "SnapshotRun",
     "Status",
 ]
