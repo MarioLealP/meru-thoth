@@ -1,0 +1,48 @@
+# Thoth's Postgres: one CNPG cluster, two logins. Deployed by Meru's meru-databases ApplicationSet as its own
+# Application (app-thoth-db), apart from the app, so no app deploy can touch it; Argo never prunes or deletes it.
+# - thoth: owns the database and every table - only the migrations step uses it. CNPG makes it at bootstrap and keeps
+#   its password in the Secret thoth-db-app (CNPG's name for the bootstrap owner).
+# - thoth_app: what the running app logs in as - rows only, never history or schema (src/thoth/sql/grants.py; its
+#   first migration with grants creates the role NOLOGIN if CNPG hasn't yet). Its password is the basic-auth Secret
+#   thoth-db-runtime, made by hand (OpenBao later).
+# Backups: the server's nightly full backup dumps every CNPG cluster. No superuser login.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: thoth-db
+  annotations:
+    # Deleting a Cluster deletes its volumes: only a person may do that, never a sync.
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  instances: 1
+  # Postgres 16, as Temporal's; Thoth's CI tests against the same major (postgres:16.15).
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.15-202610260820-minimal-trixie@sha256:fc189febbe8c683dcf7399b93d25af3ad7a4d74c061875db300c41f0ad85f77a
+  inheritedMetadata:
+    labels:
+      app.kubernetes.io/name: thoth-db
+      app.kubernetes.io/part-of: meru
+      meru.clockmost.com/app: thoth
+      meru.clockmost.com/owner: mario
+  bootstrap:
+    initdb:
+      database: thoth
+      owner: thoth
+  managed:
+    roles:
+      - name: thoth_app
+        ensure: present
+        login: true
+        inherit: false
+        connectionLimit: 20
+        passwordSecret:
+          name: thoth-db-runtime
+  storage:
+    storageClass: local
+    size: 2Gi
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 512Mi }
+  postgresql:
+    parameters:
+      max_connections: "50"
+      shared_buffers: 64MB
