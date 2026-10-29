@@ -74,6 +74,15 @@ Changing the API or the catalog: run `uv run scripts/generate.py` and commit `op
 CI lints the API against `.spectral.yaml` and fails on breaking changes against `main` - for the API that means a
 new `/vN` route (before the first release, an `API-Break: <why>` commit trailer).
 
+## Deploy
+
+`deploy/meru.yaml` makes this repo a Meru app: [Meru/meru](https://git.clockmost.com/Meru/meru) finds it and deploys
+it into namespace `thoth` as two Applications - the app (`deploy/values.yaml`, rendered with
+[Meru/nuwa](https://git.clockmost.com/Meru/nuwa)'s `nuwa-app` chart; migrations run first) and its database
+(`deploy/database/`, one CNPG cluster), kept apart so no app deploy can touch the data. Merging to `main` builds the
+image and rolls it out; builds run in `thoth-build` on [Meru/sindri](https://git.clockmost.com/Meru/sindri)'s runner,
+whose `sindri-check` label (the image the `checks` job runs in) is set in `deploy/meru.yaml`.
+
 ## License
 
 MIT
