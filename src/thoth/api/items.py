@@ -3,12 +3,14 @@ from enum import StrEnum
 from typing import Annotated, Any
 from uuid import UUID
 
+import sqlalchemy as sa
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, col, select
+from sqlmodel import Session
 
+from thoth import history
 from thoth.api.deps import get_engine
 from thoth.graph import Direction, walk
 from thoth.models import Item, Relation, Status
@@ -172,17 +174,25 @@ def list_items(
     key: Annotated[str | None, Query(description="Only this exact key.", examples=["clockmost"])] = None,
     status: Annotated[Status | None, Query(description="Only this status.", examples=["active"])] = None,
     source: Annotated[str | None, Query(description="Only items first reported by this source.")] = None,
+    as_of: Annotated[
+        datetime | None,
+        Query(
+            description="Every item as it was at this moment (from history), instead of now.",
+            examples=["2026-10-01T12:00:00Z"],
+        ),
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=1000, description="At most this many.")] = 100,
     offset: Annotated[int, Query(ge=0, description="Skip this many (for paging).")] = 0,
 ) -> list[ItemOut]:
     """Items, filtered, ordered by type then key. Keys contain slashes, so look one up with `?type=&key=`."""
-    query = select(Item)
-    for column, value in ((Item.type, type), (Item.key, key), (Item.status, status), (Item.source, source)):
+    rows = history.as_of(as_of) if as_of is not None else Item.__table__  # ty: ignore[unresolved-attribute]
+    query = sa.select(rows)
+    for column, value in (("type", type), ("key", key), ("status", status), ("source", source)):
         if value is not None:
-            query = query.where(column == value)
-    query = query.order_by(col(Item.type), col(Item.key)).limit(limit).offset(offset)
+            query = query.where(rows.c[column] == value)
+    query = query.order_by(rows.c.type, rows.c.key).limit(limit).offset(offset)
     with Session(engine) as session:
-        return [ItemOut.model_validate(i, from_attributes=True) for i in session.exec(query)]
+        return [ItemOut.model_validate(dict(row._mapping)) for row in session.connection().execute(query)]
 
 
 @router.get(
@@ -228,3 +238,30 @@ def get_web(item_id: ItemIdPath, engine: EngineDep, depth: DepthQuery = 10, dire
             dependencies=steps(Direction.DEPENDENCIES),
             cycles=[_link(c, items) for c in sorted(cycles.values(), key=lambda c: (c.type, str(c.id)))],
         )
+
+
+class VersionOut(ItemOut):
+    """One version of an item: what it looked like from `valid_from` until `valid_to` (None: still current)."""
+
+    valid_from: datetime | None = Field(examples=["2026-10-01T12:00:00Z"])
+    valid_to: datetime | None = Field(default=None, examples=["2026-10-29T12:00:00Z"])
+
+
+_HISTORY_EXAMPLE = [
+    {**_ITEM_EXAMPLE, "valid_from": "2026-10-29T12:00:00Z", "valid_to": None},
+    {**_ITEM_EXAMPLE, "key": "nitro5", "name": "nitro5", "changed_by": "host-scan",
+     "change_reason": "snapshot from host-scan@nitro5", "valid_from": "2026-10-01T12:00:00Z",
+     "valid_to": "2026-10-29T12:00:00Z"},
+]  # fmt: skip
+
+
+@router.get(
+    "/items/{item_id}/history",
+    operation_id="get_item_history",
+    responses={200: {"content": {"application/json": {"example": _HISTORY_EXAMPLE}}}},
+)
+def get_item_history(item_id: ItemIdPath, engine: EngineDep) -> list[VersionOut]:
+    """Every version of the item, newest first, each with who made it and why."""
+    with Session(engine) as session:
+        _get(session, item_id)
+        return [VersionOut.model_validate(v) for v in history.versions(session, item_id)]

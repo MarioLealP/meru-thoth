@@ -903,6 +903,170 @@
         "title": "Summary",
         "type": "object"
       },
+      "VersionOut": {
+        "description": "One version of an item: what it looked like from `valid_from` until `valid_to` (None: still current).",
+        "properties": {
+          "attributes": {
+            "additionalProperties": true,
+            "examples": [
+              {
+                "kind": "physical",
+                "os": "AlmaLinux 10.2"
+              }
+            ],
+            "title": "Attributes",
+            "type": "object"
+          },
+          "change_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "rename nitro5 -> clockmost-ai: the Nitro 5 became the AI node"
+            ],
+            "title": "Change Reason"
+          },
+          "changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "2026-10-29T12:00:00Z"
+            ],
+            "title": "Changed At"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "manual"
+            ],
+            "title": "Changed By"
+          },
+          "first_seen": {
+            "examples": [
+              "2026-10-01T12:00:00Z"
+            ],
+            "format": "date-time",
+            "title": "First Seen",
+            "type": "string"
+          },
+          "id": {
+            "examples": [
+              "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11"
+            ],
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "key": {
+            "examples": [
+              "clockmost-ai"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "last_seen": {
+            "examples": [
+              "2026-10-29T12:00:00Z"
+            ],
+            "format": "date-time",
+            "title": "Last Seen",
+            "type": "string"
+          },
+          "name": {
+            "examples": [
+              "clockmost-ai"
+            ],
+            "title": "Name",
+            "type": "string"
+          },
+          "source": {
+            "examples": [
+              "host-scan"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status",
+            "examples": [
+              "active"
+            ]
+          },
+          "type": {
+            "examples": [
+              "host"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "2026-10-01T12:00:00Z"
+            ],
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "2026-10-29T12:00:00Z"
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "key",
+          "name",
+          "status",
+          "attributes",
+          "source",
+          "first_seen",
+          "last_seen",
+          "changed_at",
+          "changed_by",
+          "change_reason",
+          "valid_from"
+        ],
+        "title": "VersionOut",
+        "type": "object"
+      },
       "WebOut": {
         "description": "The web around one item, built from one-hop links: what depends on it (`impact`) and what it needs\n(`dependencies`). Each item once per side, at its shortest distance, with the link it arrived by; links that would\nloop back are listed under `cycles` instead of followed.",
         "properties": {
@@ -1249,6 +1413,28 @@
             }
           },
           {
+            "description": "Every item as it was at this moment (from history), instead of now.",
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Every item as it was at this moment (from history), instead of now.",
+              "examples": [
+                "2026-10-01T12:00:00Z"
+              ],
+              "title": "As Of"
+            }
+          },
+          {
             "description": "At most this many.",
             "in": "query",
             "name": "limit",
@@ -1402,6 +1588,105 @@
           }
         },
         "summary": "Get Item",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/v1/items/{item_id}/history": {
+      "get": {
+        "description": "Every version of the item, newest first, each with who made it and why.",
+        "operationId": "get_item_history",
+        "parameters": [
+          {
+            "description": "The item's id.",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "The item's id.",
+              "examples": [
+                "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11"
+              ],
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": [
+                  {
+                    "attributes": {
+                      "kind": "physical",
+                      "os": "AlmaLinux 10.2"
+                    },
+                    "change_reason": "rename nitro5 -> clockmost-ai: the Nitro 5 became the AI node",
+                    "changed_at": "2026-10-29T12:00:00Z",
+                    "changed_by": "manual",
+                    "first_seen": "2026-10-01T12:00:00Z",
+                    "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                    "key": "clockmost-ai",
+                    "last_seen": "2026-10-29T12:00:00Z",
+                    "name": "clockmost-ai",
+                    "source": "host-scan",
+                    "status": "active",
+                    "type": "host",
+                    "valid_from": "2026-10-29T12:00:00Z"
+                  },
+                  {
+                    "attributes": {
+                      "kind": "physical",
+                      "os": "AlmaLinux 10.2"
+                    },
+                    "change_reason": "snapshot from host-scan@nitro5",
+                    "changed_at": "2026-10-29T12:00:00Z",
+                    "changed_by": "host-scan",
+                    "first_seen": "2026-10-01T12:00:00Z",
+                    "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                    "key": "nitro5",
+                    "last_seen": "2026-10-29T12:00:00Z",
+                    "name": "nitro5",
+                    "source": "host-scan",
+                    "status": "active",
+                    "type": "host",
+                    "valid_from": "2026-10-01T12:00:00Z",
+                    "valid_to": "2026-10-29T12:00:00Z"
+                  }
+                ],
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VersionOut"
+                  },
+                  "title": "Response Get Item History",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "example": {
+                  "status": 404,
+                  "title": "Not Found",
+                  "type": "about:blank"
+                }
+              }
+            },
+            "description": "Any error, as problem details."
+          }
+        },
+        "summary": "Get Item History",
         "tags": [
           "items"
         ]

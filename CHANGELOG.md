@@ -21,6 +21,8 @@ All notable changes to Thoth. Format: [Keep a Changelog](https://keepachangelog.
   snapshot. Slices merge by field precedence; misses count once per scan; 3 misses (or, for types that come and go,
   30 days unseen) put a thing on Anubis's list; links whose other end doesn't exist yet are skipped and heal on the
   next scan. `GET /v1/snapshots` - each source's latest run.
+- History reads: `GET /v1/items/{id}/history` (every version, newest first, with who and why) and
+  `GET /v1/items?as_of=<time>` (every item as it was then, same filters).
 - Renames: `POST /v1/renames` - same item, new key; the old key stays in history. Only the first reporter or
   `manual` may rename.
 - Reads: `GET /v1/items` (filters: type, key, status, source; paged), `GET /v1/items/{id}`, and the web around an
