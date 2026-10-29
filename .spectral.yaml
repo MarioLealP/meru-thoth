@@ -1,0 +1,30 @@
+# Thoth's API rules, checked by vacuum in CI (scripts/check.sh). Spectral's format, so any Spectral-compatible
+# linter reads it. Warnings fail the check too: the spec stays clean instead of collecting "known" warnings.
+extends: [[spectral:oas, recommended]]
+
+rules:
+  thoth-paths-kebab-case:
+    description: Paths are lower-kebab-case, parameters snake_case.
+    severity: error
+    given: $.paths[*]~
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(/([a-z0-9]+(-[a-z0-9]+)*|\\{[a-z_]+\\}))+$"
+
+  thoth-errors-are-problems:
+    description: Every operation documents its errors as application/problem+json (one error shape for clients).
+    severity: error
+    given: $.paths[*][get,put,post,patch,delete].responses.default.content
+    then:
+      field: application/problem+json
+      function: truthy
+
+  thoth-operation-ids-snake-case:
+    description: operationIds are snake_case - they become client method names.
+    severity: error
+    given: $.paths[*][get,put,post,patch,delete].operationId
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-z0-9]*(_[a-z0-9]+)*$"

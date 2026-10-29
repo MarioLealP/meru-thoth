@@ -1,0 +1,159 @@
+{
+  "components": {
+    "schemas": {
+      "Heartbeat": {
+        "description": "The process is alive.",
+        "properties": {
+          "status": {
+            "default": "ok",
+            "examples": [
+              "ok"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "Heartbeat",
+        "type": "object"
+      },
+      "Problem": {
+        "description": "What went wrong (RFC 9457 problem details).",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "no host with key 'clockmost'"
+            ],
+            "title": "Detail"
+          },
+          "errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              [
+                {
+                  "loc": [
+                    "body",
+                    "key"
+                  ],
+                  "msg": "Field required",
+                  "type": "missing"
+                }
+              ]
+            ],
+            "title": "Errors"
+          },
+          "status": {
+            "examples": [
+              404
+            ],
+            "title": "Status",
+            "type": "integer"
+          },
+          "title": {
+            "examples": [
+              "Not Found"
+            ],
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "default": "about:blank",
+            "examples": [
+              "about:blank"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "status"
+        ],
+        "title": "Problem",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Items (hosts, apps, accounts, volumes...), the typed relations between them, and every earlier version of both. The only way to write to Thoth: each write names an actor and a reason, and nothing is deleted.",
+    "license": {
+      "identifier": "MIT",
+      "name": "MIT"
+    },
+    "summary": "Meru's CMDB: what exists, how it connects, and how it got that way.",
+    "title": "Thoth",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/heartbeat": {
+      "get": {
+        "description": "Liveness: the process answers. Says nothing about the database (readiness will).",
+        "operationId": "heartbeat",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Heartbeat"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "example": {
+                  "status": 404,
+                  "title": "Not Found",
+                  "type": "about:blank"
+                }
+              }
+            },
+            "description": "Any error, as problem details."
+          }
+        },
+        "summary": "Heartbeat",
+        "tags": [
+          "health"
+        ]
+      }
+    }
+  },
+  "servers": [
+    {
+      "description": "clockmost",
+      "url": "https://thoth.clockmost.com"
+    }
+  ],
+  "tags": [
+    {
+      "description": "Is Thoth up.",
+      "name": "health"
+    }
+  ]
+}

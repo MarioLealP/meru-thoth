@@ -1,0 +1,64 @@
+[project]
+name = "thoth"
+version = "0.1.0"
+description = "Meru's CMDB: what exists, how it connects, and how it got that way"
+readme = "README.md"
+authors = [
+    { name = "MarioGLealP", email = "lealmariop@gmail.com" }
+]
+requires-python = ">=3.15"
+dependencies = [
+    "alembic>=1.20.1",
+    "alembic-utils>=0.8.8",
+    "fastapi>=0.162.0",
+    "psycopg[binary]>=3.3.6",
+    "pydantic-settings>=2.16.2",
+    "sqlmodel>=0.0.48",
+    "uvicorn>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.0",
+    "pytest>=9.2.0",
+    "ruff>=0.17.3",
+    "ty>=0.0.94",
+]
+
+
+[tool.alembic]
+script_location = "%(here)s/migrations"
+file_template = "%%(year)d%%(month).2d%%(day).2d_%%(rev)s_%%(slug)s"
+prepend_sys_path = ["."]
+
+[[tool.alembic.post_write_hooks]]
+name = "ruff"
+type = "module"
+module = "ruff"
+options = "check --fix REVISION_SCRIPT_FILENAME"
+
+[[tool.alembic.post_write_hooks]]
+name = "ruff_format"
+type = "module"
+module = "ruff"
+options = "format REVISION_SCRIPT_FILENAME"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"migrations/versions/*" = ["E501"]  # alembic_utils writes function bodies as one string
+
+[tool.ty.src]
+exclude = ["migrations/versions"]  # generated; alembic_utils adds op.create_entity at runtime
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers"
