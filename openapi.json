@@ -72,15 +72,6 @@
         "title": "Catalog",
         "type": "object"
       },
-      "Direction": {
-        "description": "impact: who depends on this (links backwards). dependencies: what this needs (links forwards).",
-        "enum": [
-          "impact",
-          "dependencies"
-        ],
-        "title": "Direction",
-        "type": "string"
-      },
       "Health": {
         "description": "Thoth's state.",
         "properties": {
@@ -718,6 +709,16 @@
         "title": "ReportedRelation",
         "type": "object"
       },
+      "Side": {
+        "description": "Which side of the web to walk.",
+        "enum": [
+          "both",
+          "impact",
+          "dependencies"
+        ],
+        "title": "Side",
+        "type": "string"
+      },
       "SnapshotRunOut": {
         "description": "A source's latest snapshot: when, and whether it was accepted (with counts) or refused (with reasons).",
         "properties": {
@@ -902,8 +903,8 @@
         "title": "Summary",
         "type": "object"
       },
-      "WalkOut": {
-        "description": "The web around one item, built from one-hop links. Each item once, at its shortest distance; links that would\nloop back are listed under `cycles` instead of followed.",
+      "WebOut": {
+        "description": "The web around one item, built from one-hop links: what depends on it (`impact`) and what it needs\n(`dependencies`). Each item once per side, at its shortest distance, with the link it arrived by; links that would\nloop back are listed under `cycles` instead of followed.",
         "properties": {
           "cycles": {
             "examples": [
@@ -933,28 +934,15 @@
             "title": "Cycles",
             "type": "array"
           },
-          "depth": {
-            "examples": [
-              10
-            ],
-            "title": "Depth",
-            "type": "integer"
-          },
-          "direction": {
-            "$ref": "#/components/schemas/Direction",
-            "examples": [
-              "impact"
-            ]
-          },
-          "items": {
+          "dependencies": {
             "examples": [
               [
                 {
                   "depth": 1,
                   "item": {
-                    "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
-                    "key": "temporal",
-                    "name": "temporal",
+                    "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a10",
+                    "key": "temporal-db",
+                    "name": "temporal-db",
                     "status": "active",
                     "type": "app"
                   },
@@ -975,9 +963,27 @@
                     },
                     "type": "uses"
                   }
-                },
+                }
+              ]
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Step"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "depth": {
+            "examples": [
+              10
+            ],
+            "title": "Depth",
+            "type": "integer"
+          },
+          "impact": {
+            "examples": [
+              [
                 {
-                  "depth": 2,
+                  "depth": 1,
                   "item": {
                     "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a12",
                     "key": "shikigami",
@@ -1008,7 +1014,7 @@
             "items": {
               "$ref": "#/components/schemas/Step"
             },
-            "title": "Items",
+            "title": "Impact",
             "type": "array"
           },
           "root": {
@@ -1017,12 +1023,12 @@
         },
         "required": [
           "root",
-          "direction",
           "depth",
-          "items",
+          "impact",
+          "dependencies",
           "cycles"
         ],
-        "title": "WalkOut",
+        "title": "WebOut",
         "type": "object"
       }
     }
@@ -1401,10 +1407,10 @@
         ]
       }
     },
-    "/v1/items/{item_id}/dependencies": {
+    "/v1/items/{item_id}/web": {
       "get": {
-        "description": "What this item needs to work (follows links forwards).",
-        "operationId": "get_dependencies",
+        "description": "What depends on this item (what breaks if it goes) and what it needs to work.",
+        "operationId": "get_web",
         "parameters": [
           {
             "description": "The item's id.",
@@ -1434,161 +1440,16 @@
               "title": "Depth",
               "type": "integer"
             }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "cycles": [
-                    {
-                      "from": {
-                        "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
-                        "key": "temporal",
-                        "name": "temporal",
-                        "status": "active",
-                        "type": "app"
-                      },
-                      "to": {
-                        "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a12",
-                        "key": "shikigami",
-                        "name": "shikigami",
-                        "status": "active",
-                        "type": "app"
-                      },
-                      "type": "uses"
-                    }
-                  ],
-                  "depth": 10,
-                  "direction": "impact",
-                  "items": [
-                    {
-                      "depth": 1,
-                      "item": {
-                        "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
-                        "key": "temporal",
-                        "name": "temporal",
-                        "status": "active",
-                        "type": "app"
-                      },
-                      "via": {
-                        "from": {
-                          "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
-                          "key": "temporal",
-                          "name": "temporal",
-                          "status": "active",
-                          "type": "app"
-                        },
-                        "to": {
-                          "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a10",
-                          "key": "temporal-db",
-                          "name": "temporal-db",
-                          "status": "active",
-                          "type": "app"
-                        },
-                        "type": "uses"
-                      }
-                    },
-                    {
-                      "depth": 2,
-                      "item": {
-                        "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a12",
-                        "key": "shikigami",
-                        "name": "shikigami",
-                        "status": "active",
-                        "type": "app"
-                      },
-                      "via": {
-                        "from": {
-                          "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a12",
-                          "key": "shikigami",
-                          "name": "shikigami",
-                          "status": "active",
-                          "type": "app"
-                        },
-                        "to": {
-                          "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
-                          "key": "temporal",
-                          "name": "temporal",
-                          "status": "active",
-                          "type": "app"
-                        },
-                        "type": "uses"
-                      }
-                    }
-                  ],
-                  "root": {
-                    "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a10",
-                    "key": "temporal-db",
-                    "name": "temporal-db",
-                    "status": "active",
-                    "type": "app"
-                  }
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/WalkOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              },
-              "application/problem+json": {
-                "example": {
-                  "status": 404,
-                  "title": "Not Found",
-                  "type": "about:blank"
-                }
-              }
-            },
-            "description": "Any error, as problem details."
-          }
-        },
-        "summary": "Get Dependencies",
-        "tags": [
-          "items"
-        ]
-      }
-    },
-    "/v1/items/{item_id}/impact": {
-      "get": {
-        "description": "What depends on this item - what breaks if it goes away (follows links backwards).",
-        "operationId": "get_impact",
-        "parameters": [
-          {
-            "description": "The item's id.",
-            "in": "path",
-            "name": "item_id",
-            "required": true,
-            "schema": {
-              "description": "The item's id.",
-              "examples": [
-                "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11"
-              ],
-              "format": "uuid",
-              "title": "Item Id",
-              "type": "string"
-            }
           },
           {
-            "description": "How many links away to go; 1 = direct neighbours only.",
+            "description": "Both sides, or only one.",
             "in": "query",
-            "name": "depth",
+            "name": "direction",
             "required": false,
             "schema": {
-              "default": 10,
-              "description": "How many links away to go; 1 = direct neighbours only.",
-              "maximum": 50,
-              "minimum": 1,
-              "title": "Depth",
-              "type": "integer"
+              "$ref": "#/components/schemas/Side",
+              "default": "both",
+              "description": "Both sides, or only one."
             }
           }
         ],
@@ -1597,34 +1458,14 @@
             "content": {
               "application/json": {
                 "example": {
-                  "cycles": [
-                    {
-                      "from": {
-                        "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
-                        "key": "temporal",
-                        "name": "temporal",
-                        "status": "active",
-                        "type": "app"
-                      },
-                      "to": {
-                        "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a12",
-                        "key": "shikigami",
-                        "name": "shikigami",
-                        "status": "active",
-                        "type": "app"
-                      },
-                      "type": "uses"
-                    }
-                  ],
-                  "depth": 10,
-                  "direction": "impact",
-                  "items": [
+                  "cycles": [],
+                  "dependencies": [
                     {
                       "depth": 1,
                       "item": {
-                        "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
-                        "key": "temporal",
-                        "name": "temporal",
+                        "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a10",
+                        "key": "temporal-db",
+                        "name": "temporal-db",
                         "status": "active",
                         "type": "app"
                       },
@@ -1645,9 +1486,12 @@
                         },
                         "type": "uses"
                       }
-                    },
+                    }
+                  ],
+                  "depth": 10,
+                  "impact": [
                     {
-                      "depth": 2,
+                      "depth": 1,
                       "item": {
                         "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a12",
                         "key": "shikigami",
@@ -1675,15 +1519,15 @@
                     }
                   ],
                   "root": {
-                    "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a10",
-                    "key": "temporal-db",
-                    "name": "temporal-db",
+                    "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                    "key": "temporal",
+                    "name": "temporal",
                     "status": "active",
                     "type": "app"
                   }
                 },
                 "schema": {
-                  "$ref": "#/components/schemas/WalkOut"
+                  "$ref": "#/components/schemas/WebOut"
                 }
               }
             },
@@ -1707,7 +1551,7 @@
             "description": "Any error, as problem details."
           }
         },
-        "summary": "Get Impact",
+        "summary": "Get Web",
         "tags": [
           "items"
         ]

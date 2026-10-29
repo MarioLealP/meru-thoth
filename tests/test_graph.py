@@ -23,7 +23,13 @@ def web(client: TestClient, *links: tuple[str, str]) -> None:
 
 
 def walk(client: TestClient, db: Engine, name: str, direction: str, depth: int = 10) -> dict[str, Any]:
-    response = client.get(f"/v1/items/{item(db, 'app', name).id}/{direction}", params={"depth": depth})
+    """One side of the web, from GET /web?direction=."""
+    web_ = get_web(client, db, name, depth=depth, direction=direction)
+    return {"items": web_[direction], "cycles": web_["cycles"]}
+
+
+def get_web(client: TestClient, db: Engine, name: str, **params: Any) -> dict[str, Any]:
+    response = client.get(f"/v1/items/{item(db, 'app', name).id}/web", params=params)
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -86,5 +92,20 @@ def test_items_lookup_and_404(client: TestClient, db: Engine) -> None:
     [found] = client.get("/v1/items", params={"type": "app", "key": "echo"}).json()
     assert client.get(f"/v1/items/{found['id']}").json()["key"] == "echo"
     assert [i["key"] for i in client.get("/v1/items", params={"type": "app"}).json()] == ["echo", "shikigami"]
-    missing = client.get("/v1/items/00000000-0000-0000-0000-000000000000/impact")
+    missing = client.get("/v1/items/00000000-0000-0000-0000-000000000000/web")
     assert (missing.status_code, missing.headers["content-type"]) == (404, "application/problem+json")
+
+
+def test_both_sides_at_once(client: TestClient, db: Engine) -> None:
+    web(client, ("echo", "shikigami"), ("shikigami", "temporal"), ("temporal", "temporal-db"))
+    both = get_web(client, db, "temporal")
+    assert reached({"items": both["impact"]}) == [("shikigami", 1), ("echo", 2)]
+    assert reached({"items": both["dependencies"]}) == [("temporal-db", 1)]
+    only = get_web(client, db, "temporal", direction="impact")
+    assert only["dependencies"] == []
+
+
+def test_both_sides_report_the_links_that_close_the_loop(client: TestClient, db: Engine) -> None:
+    web(client, ("a", "b"), ("b", "a"))
+    cycles = [(c["from"]["key"], c["to"]["key"]) for c in get_web(client, db, "a")["cycles"]]
+    assert sorted(cycles) == [("a", "b"), ("b", "a")]  # each side closes it with a different link, each listed once

@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import StrEnum
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -91,17 +92,16 @@ _TEMPORAL_DB, _TEMPORAL, _SHIKIGAMI = (
     _ref_example(k, n) for n, k in enumerate(("temporal-db", "temporal", "shikigami"))
 )
 _CYCLE_EXAMPLE = {"type": "uses", "from": _TEMPORAL, "to": _SHIKIGAMI}
-_WALK_EXAMPLE = {
-    "root": _TEMPORAL_DB,
-    "direction": "impact",
+_WEB_EXAMPLE = {
+    "root": _TEMPORAL,
     "depth": 10,
-    "items": [
-        {"item": _TEMPORAL, "depth": 1, "via": {"type": "uses", "from": _TEMPORAL, "to": _TEMPORAL_DB}},
-        {"item": _SHIKIGAMI, "depth": 2, "via": {"type": "uses", "from": _SHIKIGAMI, "to": _TEMPORAL}},
+    "impact": [{"item": _SHIKIGAMI, "depth": 1, "via": {"type": "uses", "from": _SHIKIGAMI, "to": _TEMPORAL}}],
+    "dependencies": [
+        {"item": _TEMPORAL_DB, "depth": 1, "via": {"type": "uses", "from": _TEMPORAL, "to": _TEMPORAL_DB}}
     ],
-    "cycles": [_CYCLE_EXAMPLE],
+    "cycles": [],
 }
-_WALK_RESPONSE: dict[int | str, dict[str, Any]] = {200: {"content": {"application/json": {"example": _WALK_EXAMPLE}}}}
+_WEB_RESPONSE: dict[int | str, dict[str, Any]] = {200: {"content": {"application/json": {"example": _WEB_EXAMPLE}}}}
 
 
 class ItemRef(BaseModel):
@@ -132,14 +132,15 @@ class Step(BaseModel):
     via: LinkOut
 
 
-class WalkOut(BaseModel):
-    """The web around one item, built from one-hop links. Each item once, at its shortest distance; links that would
+class WebOut(BaseModel):
+    """The web around one item, built from one-hop links: what depends on it (`impact`) and what it needs
+    (`dependencies`). Each item once per side, at its shortest distance, with the link it arrived by; links that would
     loop back are listed under `cycles` instead of followed."""
 
     root: ItemRef
-    direction: Direction = Field(examples=["impact"])
     depth: int = Field(examples=[10])
-    items: list[Step] = Field(examples=[_WALK_EXAMPLE["items"]])
+    impact: list[Step] = Field(examples=[_WEB_EXAMPLE["impact"]])
+    dependencies: list[Step] = Field(examples=[_WEB_EXAMPLE["dependencies"]])
     cycles: list[LinkOut] = Field(examples=[[_CYCLE_EXAMPLE]])
 
 
@@ -195,32 +196,35 @@ def get_item(item_id: ItemIdPath, engine: EngineDep) -> ItemOut:
         return ItemOut.model_validate(_get(session, item_id), from_attributes=True)
 
 
-def _walk(engine: Engine, item_id: UUID, direction: Direction, depth: int) -> WalkOut:
-    with Session(engine) as session:
-        root = _get(session, item_id)
-        result = walk(session, item_id, direction, depth)
-        items = {**result.items, root.id: root}
-        return WalkOut(
-            root=_ref(root),
-            direction=direction,
-            depth=depth,
-            items=[
-                Step(item=_ref(items[s.item_id]), depth=s.depth, via=_link(s.relation, items)) for s in result.steps
-            ],
-            cycles=[_link(c, items) for c in result.cycles],
-        )
+class Side(StrEnum):
+    """Which side of the web to walk."""
+
+    BOTH = "both"
+    IMPACT = "impact"
+    DEPENDENCIES = "dependencies"
 
 
 DepthQuery = Annotated[int, Query(ge=1, le=50, description="How many links away to go; 1 = direct neighbours only.")]
+SideQuery = Annotated[Side, Query(description="Both sides, or only one.")]
 
 
-@router.get("/items/{item_id}/impact", operation_id="get_impact", responses=_WALK_RESPONSE)
-def get_impact(item_id: ItemIdPath, engine: EngineDep, depth: DepthQuery = 10) -> WalkOut:
-    """What depends on this item - what breaks if it goes away (follows links backwards)."""
-    return _walk(engine, item_id, Direction.IMPACT, depth)
+@router.get("/items/{item_id}/web", operation_id="get_web", responses=_WEB_RESPONSE)
+def get_web(item_id: ItemIdPath, engine: EngineDep, depth: DepthQuery = 10, direction: SideQuery = Side.BOTH) -> WebOut:
+    """What depends on this item (what breaks if it goes) and what it needs to work."""
+    with Session(engine) as session:
+        root = _get(session, item_id)
+        sides = {d: walk(session, item_id, d, depth) for d in Direction if direction in (Side.BOTH, d.value)}
+        items = {root.id: root} | {k: v for w in sides.values() for k, v in w.items.items()}
+        cycles = {c.id: c for w in sides.values() for c in w.cycles}  # a loop shows up on both sides: once
 
+        def steps(d: Direction) -> list[Step]:
+            found = sides[d].steps if d in sides else []
+            return [Step(item=_ref(items[s.item_id]), depth=s.depth, via=_link(s.relation, items)) for s in found]
 
-@router.get("/items/{item_id}/dependencies", operation_id="get_dependencies", responses=_WALK_RESPONSE)
-def get_dependencies(item_id: ItemIdPath, engine: EngineDep, depth: DepthQuery = 10) -> WalkOut:
-    """What this item needs to work (follows links forwards)."""
-    return _walk(engine, item_id, Direction.DEPENDENCIES, depth)
+        return WebOut(
+            root=_ref(root),
+            depth=depth,
+            impact=steps(Direction.IMPACT),
+            dependencies=steps(Direction.DEPENDENCIES),
+            cycles=[_link(c, items) for c in sorted(cycles.values(), key=lambda c: (c.type, str(c.id)))],
+        )
