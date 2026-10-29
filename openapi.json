@@ -72,6 +72,15 @@
         "title": "Catalog",
         "type": "object"
       },
+      "Direction": {
+        "description": "impact: who depends on this (links backwards). dependencies: what this needs (links forwards).",
+        "enum": [
+          "impact",
+          "dependencies"
+        ],
+        "title": "Direction",
+        "type": "string"
+      },
       "Health": {
         "description": "Thoth's state.",
         "properties": {
@@ -220,6 +229,55 @@
         "title": "ItemOut",
         "type": "object"
       },
+      "ItemRef": {
+        "description": "Enough to name an item.",
+        "properties": {
+          "id": {
+            "examples": [
+              "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11"
+            ],
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "key": {
+            "examples": [
+              "temporal"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "examples": [
+              "Temporal"
+            ],
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status",
+            "examples": [
+              "active"
+            ]
+          },
+          "type": {
+            "examples": [
+              "app"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "key",
+          "name",
+          "status"
+        ],
+        "title": "ItemRef",
+        "type": "object"
+      },
       "ItemSnapshot": {
         "description": "Every item a source sees from one scope - its whole picture, not a diff.",
         "properties": {
@@ -296,6 +354,31 @@
           "schema"
         ],
         "title": "ItemTypeOut",
+        "type": "object"
+      },
+      "LinkOut": {
+        "description": "A link: `from` depends on `to`.",
+        "properties": {
+          "from": {
+            "$ref": "#/components/schemas/ItemRef"
+          },
+          "to": {
+            "$ref": "#/components/schemas/ItemRef"
+          },
+          "type": {
+            "examples": [
+              "uses"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "from",
+          "to"
+        ],
+        "title": "LinkOut",
         "type": "object"
       },
       "Problem": {
@@ -730,6 +813,31 @@
         "title": "Status",
         "type": "string"
       },
+      "Step": {
+        "description": "An item the walk reached, how far from the start, and the link it arrived by.",
+        "properties": {
+          "depth": {
+            "examples": [
+              1
+            ],
+            "title": "Depth",
+            "type": "integer"
+          },
+          "item": {
+            "$ref": "#/components/schemas/ItemRef"
+          },
+          "via": {
+            "$ref": "#/components/schemas/LinkOut"
+          }
+        },
+        "required": [
+          "item",
+          "depth",
+          "via"
+        ],
+        "title": "Step",
+        "type": "object"
+      },
       "Summary": {
         "description": "What a snapshot changed.",
         "properties": {
@@ -792,6 +900,129 @@
           "for_anubis"
         ],
         "title": "Summary",
+        "type": "object"
+      },
+      "WalkOut": {
+        "description": "The web around one item, built from one-hop links. Each item once, at its shortest distance; links that would\nloop back are listed under `cycles` instead of followed.",
+        "properties": {
+          "cycles": {
+            "examples": [
+              [
+                {
+                  "from": {
+                    "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                    "key": "temporal",
+                    "name": "temporal",
+                    "status": "active",
+                    "type": "app"
+                  },
+                  "to": {
+                    "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a12",
+                    "key": "shikigami",
+                    "name": "shikigami",
+                    "status": "active",
+                    "type": "app"
+                  },
+                  "type": "uses"
+                }
+              ]
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LinkOut"
+            },
+            "title": "Cycles",
+            "type": "array"
+          },
+          "depth": {
+            "examples": [
+              10
+            ],
+            "title": "Depth",
+            "type": "integer"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/Direction",
+            "examples": [
+              "impact"
+            ]
+          },
+          "items": {
+            "examples": [
+              [
+                {
+                  "depth": 1,
+                  "item": {
+                    "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                    "key": "temporal",
+                    "name": "temporal",
+                    "status": "active",
+                    "type": "app"
+                  },
+                  "via": {
+                    "from": {
+                      "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                      "key": "temporal",
+                      "name": "temporal",
+                      "status": "active",
+                      "type": "app"
+                    },
+                    "to": {
+                      "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a10",
+                      "key": "temporal-db",
+                      "name": "temporal-db",
+                      "status": "active",
+                      "type": "app"
+                    },
+                    "type": "uses"
+                  }
+                },
+                {
+                  "depth": 2,
+                  "item": {
+                    "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a12",
+                    "key": "shikigami",
+                    "name": "shikigami",
+                    "status": "active",
+                    "type": "app"
+                  },
+                  "via": {
+                    "from": {
+                      "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a12",
+                      "key": "shikigami",
+                      "name": "shikigami",
+                      "status": "active",
+                      "type": "app"
+                    },
+                    "to": {
+                      "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                      "key": "temporal",
+                      "name": "temporal",
+                      "status": "active",
+                      "type": "app"
+                    },
+                    "type": "uses"
+                  }
+                }
+              ]
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Step"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "root": {
+            "$ref": "#/components/schemas/ItemRef"
+          }
+        },
+        "required": [
+          "root",
+          "direction",
+          "depth",
+          "items",
+          "cycles"
+        ],
+        "title": "WalkOut",
         "type": "object"
       }
     }
@@ -922,6 +1153,563 @@
         "summary": "Get Catalog",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/v1/items": {
+      "get": {
+        "description": "Items, filtered, ordered by type then key. Keys contain slashes, so look one up with `?type=&key=`.",
+        "operationId": "list_items",
+        "parameters": [
+          {
+            "description": "Only this item type.",
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this item type.",
+              "examples": [
+                "host"
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "description": "Only this exact key.",
+            "in": "query",
+            "name": "key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this exact key.",
+              "examples": [
+                "clockmost"
+              ],
+              "title": "Key"
+            }
+          },
+          {
+            "description": "Only this status.",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Status"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this status.",
+              "examples": [
+                "active"
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "description": "Only items first reported by this source.",
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only items first reported by this source.",
+              "title": "Source"
+            }
+          },
+          {
+            "description": "At most this many.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "At most this many.",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Skip this many (for paging).",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Skip this many (for paging).",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": [
+                  {
+                    "attributes": {
+                      "kind": "physical",
+                      "os": "AlmaLinux 10.2"
+                    },
+                    "change_reason": "rename nitro5 -> clockmost-ai: the Nitro 5 became the AI node",
+                    "changed_at": "2026-10-29T12:00:00Z",
+                    "changed_by": "manual",
+                    "first_seen": "2026-10-01T12:00:00Z",
+                    "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                    "key": "clockmost-ai",
+                    "last_seen": "2026-10-29T12:00:00Z",
+                    "name": "clockmost-ai",
+                    "source": "host-scan",
+                    "status": "active",
+                    "type": "host"
+                  }
+                ],
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ItemOut"
+                  },
+                  "title": "Response List Items",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "example": {
+                  "status": 404,
+                  "title": "Not Found",
+                  "type": "about:blank"
+                }
+              }
+            },
+            "description": "Any error, as problem details."
+          }
+        },
+        "summary": "List Items",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/v1/items/{item_id}": {
+      "get": {
+        "description": "One item as it is now.",
+        "operationId": "get_item",
+        "parameters": [
+          {
+            "description": "The item's id.",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "The item's id.",
+              "examples": [
+                "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11"
+              ],
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "attributes": {
+                    "kind": "physical",
+                    "os": "AlmaLinux 10.2"
+                  },
+                  "change_reason": "rename nitro5 -> clockmost-ai: the Nitro 5 became the AI node",
+                  "changed_at": "2026-10-29T12:00:00Z",
+                  "changed_by": "manual",
+                  "first_seen": "2026-10-01T12:00:00Z",
+                  "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                  "key": "clockmost-ai",
+                  "last_seen": "2026-10-29T12:00:00Z",
+                  "name": "clockmost-ai",
+                  "source": "host-scan",
+                  "status": "active",
+                  "type": "host"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ItemOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "example": {
+                  "status": 404,
+                  "title": "Not Found",
+                  "type": "about:blank"
+                }
+              }
+            },
+            "description": "Any error, as problem details."
+          }
+        },
+        "summary": "Get Item",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/v1/items/{item_id}/dependencies": {
+      "get": {
+        "description": "What this item needs to work (follows links forwards).",
+        "operationId": "get_dependencies",
+        "parameters": [
+          {
+            "description": "The item's id.",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "The item's id.",
+              "examples": [
+                "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11"
+              ],
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "How many links away to go; 1 = direct neighbours only.",
+            "in": "query",
+            "name": "depth",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "description": "How many links away to go; 1 = direct neighbours only.",
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Depth",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "cycles": [
+                    {
+                      "from": {
+                        "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                        "key": "temporal",
+                        "name": "temporal",
+                        "status": "active",
+                        "type": "app"
+                      },
+                      "to": {
+                        "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a12",
+                        "key": "shikigami",
+                        "name": "shikigami",
+                        "status": "active",
+                        "type": "app"
+                      },
+                      "type": "uses"
+                    }
+                  ],
+                  "depth": 10,
+                  "direction": "impact",
+                  "items": [
+                    {
+                      "depth": 1,
+                      "item": {
+                        "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                        "key": "temporal",
+                        "name": "temporal",
+                        "status": "active",
+                        "type": "app"
+                      },
+                      "via": {
+                        "from": {
+                          "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                          "key": "temporal",
+                          "name": "temporal",
+                          "status": "active",
+                          "type": "app"
+                        },
+                        "to": {
+                          "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a10",
+                          "key": "temporal-db",
+                          "name": "temporal-db",
+                          "status": "active",
+                          "type": "app"
+                        },
+                        "type": "uses"
+                      }
+                    },
+                    {
+                      "depth": 2,
+                      "item": {
+                        "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a12",
+                        "key": "shikigami",
+                        "name": "shikigami",
+                        "status": "active",
+                        "type": "app"
+                      },
+                      "via": {
+                        "from": {
+                          "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a12",
+                          "key": "shikigami",
+                          "name": "shikigami",
+                          "status": "active",
+                          "type": "app"
+                        },
+                        "to": {
+                          "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                          "key": "temporal",
+                          "name": "temporal",
+                          "status": "active",
+                          "type": "app"
+                        },
+                        "type": "uses"
+                      }
+                    }
+                  ],
+                  "root": {
+                    "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a10",
+                    "key": "temporal-db",
+                    "name": "temporal-db",
+                    "status": "active",
+                    "type": "app"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/WalkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "example": {
+                  "status": 404,
+                  "title": "Not Found",
+                  "type": "about:blank"
+                }
+              }
+            },
+            "description": "Any error, as problem details."
+          }
+        },
+        "summary": "Get Dependencies",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/v1/items/{item_id}/impact": {
+      "get": {
+        "description": "What depends on this item - what breaks if it goes away (follows links backwards).",
+        "operationId": "get_impact",
+        "parameters": [
+          {
+            "description": "The item's id.",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "description": "The item's id.",
+              "examples": [
+                "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11"
+              ],
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "How many links away to go; 1 = direct neighbours only.",
+            "in": "query",
+            "name": "depth",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "description": "How many links away to go; 1 = direct neighbours only.",
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Depth",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "cycles": [
+                    {
+                      "from": {
+                        "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                        "key": "temporal",
+                        "name": "temporal",
+                        "status": "active",
+                        "type": "app"
+                      },
+                      "to": {
+                        "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a12",
+                        "key": "shikigami",
+                        "name": "shikigami",
+                        "status": "active",
+                        "type": "app"
+                      },
+                      "type": "uses"
+                    }
+                  ],
+                  "depth": 10,
+                  "direction": "impact",
+                  "items": [
+                    {
+                      "depth": 1,
+                      "item": {
+                        "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                        "key": "temporal",
+                        "name": "temporal",
+                        "status": "active",
+                        "type": "app"
+                      },
+                      "via": {
+                        "from": {
+                          "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                          "key": "temporal",
+                          "name": "temporal",
+                          "status": "active",
+                          "type": "app"
+                        },
+                        "to": {
+                          "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a10",
+                          "key": "temporal-db",
+                          "name": "temporal-db",
+                          "status": "active",
+                          "type": "app"
+                        },
+                        "type": "uses"
+                      }
+                    },
+                    {
+                      "depth": 2,
+                      "item": {
+                        "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a12",
+                        "key": "shikigami",
+                        "name": "shikigami",
+                        "status": "active",
+                        "type": "app"
+                      },
+                      "via": {
+                        "from": {
+                          "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a12",
+                          "key": "shikigami",
+                          "name": "shikigami",
+                          "status": "active",
+                          "type": "app"
+                        },
+                        "to": {
+                          "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                          "key": "temporal",
+                          "name": "temporal",
+                          "status": "active",
+                          "type": "app"
+                        },
+                        "type": "uses"
+                      }
+                    }
+                  ],
+                  "root": {
+                    "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a10",
+                    "key": "temporal-db",
+                    "name": "temporal-db",
+                    "status": "active",
+                    "type": "app"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/WalkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "example": {
+                  "status": 404,
+                  "title": "Not Found",
+                  "type": "about:blank"
+                }
+              }
+            },
+            "description": "Any error, as problem details."
+          }
+        },
+        "summary": "Get Impact",
+        "tags": [
+          "items"
         ]
       }
     },

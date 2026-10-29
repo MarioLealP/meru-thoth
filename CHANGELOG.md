@@ -23,5 +23,9 @@ All notable changes to Thoth. Format: [Keep a Changelog](https://keepachangelog.
   next scan. `GET /v1/snapshots` - each source's latest run.
 - Renames: `POST /v1/renames` - same item, new key; the old key stays in history. Only the first reporter or
   `manual` may rename.
+- Reads: `GET /v1/items` (filters: type, key, status, source; paged), `GET /v1/items/{id}`, and the web around an
+  item - `GET /v1/items/{id}/impact` (what depends on it) and `/dependencies` (what it needs): one recursive query,
+  each item once at its shortest distance with the link it came by, loops reported under `cycles` instead of
+  followed, retired links skipped, `depth` 1-50 (default 10).
 - `decommissioning` status; only Anubis may set `retired` (enforced in the database).
 - API contract checks: house lint rules (`.spectral.yaml`, run with vacuum) and breaking-change detection (oasdiff).
