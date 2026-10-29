@@ -12,7 +12,7 @@ fi
 if ! podman container exists "$name"; then
     podman run -d --rm --name "$name" -p "127.0.0.1:$port:5432" \
         -e POSTGRES_USER=thoth -e POSTGRES_PASSWORD=thoth -e POSTGRES_DB=thoth \
-        docker.io/library/postgres:16 >/dev/null
+        docker.io/library/postgres:16.15-trixie@sha256:1beaa3084eee2676f20a9cd9928f0bf2c5bf674f8e49f81017912183d377c61c >/dev/null
 fi
 until podman exec "$name" pg_isready -U thoth -q; do sleep 0.5; done
 echo "postgresql+psycopg://thoth:thoth@127.0.0.1:$port/thoth"

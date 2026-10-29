@@ -26,6 +26,8 @@ def alembic_config() -> Config:
 def engine() -> Iterator[Engine]:
     url = os.environ.get("THOTH_TEST_DATABASE_URL")
     if not url:
+        if os.environ.get("CI"):  # CI always has its database; skipping there would pass without testing
+            pytest.fail("THOTH_TEST_DATABASE_URL not set in CI")
         pytest.skip("THOTH_TEST_DATABASE_URL not set - start one with scripts/test-db.sh")
     engine = make_engine(url)
     yield engine
