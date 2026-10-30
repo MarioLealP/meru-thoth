@@ -23,6 +23,11 @@ secretEnv:
   PGPASSWORD:
     secret: thoth-db-runtime
     key: password
+# ESO fills the runtime login from OpenBao (apps/meru/thoth/eso/thoth-db-runtime, D66); CNPG's managed role reads
+# the same Secret for the password.
+externalSecrets:
+  thoth-db-runtime:
+    type: kubernetes.io/basic-auth
 # Migrations log in as the schema owner (CNPG's bootstrap owner Secret).
 migrate:
   enabled: true

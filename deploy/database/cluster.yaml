@@ -4,7 +4,7 @@
 #   its password in the Secret thoth-db-app (CNPG's name for the bootstrap owner).
 # - thoth_app: what the running app logs in as - rows only, never history or schema (src/thoth/sql/grants.py; its
 #   first migration with grants creates the role NOLOGIN if CNPG hasn't yet). Its password is the basic-auth Secret
-#   thoth-db-runtime, made by hand (OpenBao later).
+#   thoth-db-runtime, filled by ESO from OpenBao (deploy/values.yaml externalSecrets).
 # Backups: the server's nightly full backup dumps every CNPG cluster. No superuser login.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
