@@ -46,6 +46,13 @@ def _k8s_scan(scope: str, type_name: str, key: str, attributes: dict[str, Any]) 
 
 RULES: dict[str, Rule] = {Source.HOST: _host_scan, Source.K8S: _k8s_scan}
 
+# Sources that see a whole system (scope `all`): which item types each may report. Owning fields isn't enough to go
+# by - some types have none - and without a list a source could create any type, empty, under its name. A source
+# gets its list when it's built (D51); one without a list isn't limited yet.
+TYPES: dict[str, frozenset[str]] = {
+    Source.SHIKIGAMI: frozenset({"app", "route", "bot"}),  # what was requested; databases etc. join as it declares them
+}
+
 
 def scope_problem(source: str, scope: str) -> str | None:
     if not re.fullmatch(SCOPE_PATTERN, scope):
@@ -56,5 +63,7 @@ def scope_problem(source: str, scope: str) -> str | None:
 
 
 def in_scope(source: str, scope: str, type_name: str, key: str, attributes: dict[str, Any]) -> bool:
-    rule = RULES.get(source)
-    return rule is None or rule(scope, type_name, key, attributes)
+    if rule := RULES.get(source):
+        return rule(scope, type_name, key, attributes)
+    types = TYPES.get(source)
+    return types is None or type_name in types

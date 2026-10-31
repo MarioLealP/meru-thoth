@@ -103,6 +103,15 @@ def test_whole_system_sources_use_scope_all(client: TestClient) -> None:
     assert "its scope is 'all'" in response.json()["errors"][0]["msg"]
 
 
+def test_a_whole_system_source_only_reports_its_types(client: TestClient) -> None:
+    host = {"type": "host", "key": "made-up", "name": "made-up", "attributes": {}}
+    app = {"type": "app", "key": "echo", "name": "echo", "attributes": {"template": "nuwa/python"}}
+    response = put(client, "shikigami", "all", app, host)
+    assert response.status_code == 422  # all or nothing: the app isn't written either
+    assert [e["msg"] for e in response.json()["errors"]] == ["items[1] (host made-up): outside scope all"]
+    assert put(client, "shikigami", "all", app).status_code == 200
+
+
 def test_bad_keys_and_unknown_types_are_refused(client: TestClient) -> None:
     response = put(client, "host-scan", "clockmost-desktop", {**DESKTOP, "key": "Clockmost-Desktop"},
                    {"type": "toaster", "key": "x", "name": "x", "attributes": {}})  # fmt: skip
