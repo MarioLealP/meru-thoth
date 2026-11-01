@@ -3,8 +3,8 @@ name: thoth
 owner: mario
 image:
   repository: zot.clockmost.com/meru/thoth
-  digest: sha256:40235c356e60bf1e73bff6556c89657ed572e650cf4eba739360a15dbabec6d8
-  tag: "fc743900205e"
+  digest: sha256:f219ec367a7c602854ca057df15da73a17a188a2c8dc25a1cc5ff1b84234d76c
+  tag: "83dc06429df9"
 port: 8080
 heartbeat:
   readyPath: /ready # the database answers and every stored row fits the catalog
