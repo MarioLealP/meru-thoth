@@ -5,11 +5,11 @@ query: the walk carries the path it took, never follows a link back onto that pa
 such links as cycles. Each item comes back once, at its shortest distance. Retired links are not walked.
 """
 
-from dataclasses import dataclass
 from enum import StrEnum
 from uuid import UUID
 
 import sqlalchemy as sa
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.dialects.postgresql import ARRAY, array
 from sqlmodel import Session, col, select
 
@@ -23,15 +23,17 @@ class Direction(StrEnum):
     DEPENDENCIES = "dependencies"
 
 
-@dataclass(frozen=True)
-class Step:
+class Step(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     item_id: UUID
     depth: int
     relation: Relation  # the link the walk arrived by
 
 
-@dataclass(frozen=True)
-class Walk:
+class Walk(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     steps: list[Step]
     cycles: list[Relation]  # links that close a loop - reported, not followed
     items: dict[UUID, Item]  # every item mentioned, for naming
@@ -80,7 +82,7 @@ def walk(session: Session, root: UUID, direction: Direction, max_depth: int) -> 
     items = {x.id: x for x in session.exec(select(Item).where(col(Item.id).in_(item_ids)))}
     ordered = sorted(shortest.items(), key=lambda kv: (kv[1][0], items[kv[0]].type, items[kv[0]].key))
     return Walk(
-        steps=[Step(item_id, depth, relations[rid]) for item_id, (depth, rid) in ordered],
+        steps=[Step(item_id=item_id, depth=depth, relation=relations[rid]) for item_id, (depth, rid) in ordered],
         cycles=sorted((relations[rid] for rid in cycle_ids), key=lambda x: (x.type, str(x.id))),
         items=items,
     )
