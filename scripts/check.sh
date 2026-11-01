@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Every check CI runs, runnable locally: lint, format, types, tests, and the API contract.
+# Every check CI runs, runnable locally: lint, format, types, the lockfile, pip-audit, tests, and the API contract.
 #   scripts/check.sh                  compare the API against origin/main
 #   THOTH_API_BASE=<ref> scripts/check.sh
 # Needs podman for the test database, unless THOTH_TEST_DATABASE_URL points at one (CI: a service container).
@@ -17,6 +17,10 @@ uv run ruff check .
 uv run ruff format --check .
 step ty
 uv run ty check
+step "uv.lock up to date"
+uv lock --check
+step pip-audit
+uvx pip-audit --disable-pip --require-hashes --progress-spinner off -r <(uv export --frozen --no-emit-project --quiet)
 step pytest
 THOTH_TEST_DATABASE_URL=${THOTH_TEST_DATABASE_URL:-$(scripts/test-db.sh)} uv run pytest -q
 

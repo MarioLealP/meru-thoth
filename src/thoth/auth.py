@@ -13,10 +13,10 @@ needs. Authentik is the one place that grants permissions:
 Revocation model: local validation until expiry; a disabled bot stops within the token lifetime + leeway.
 """
 
-from dataclasses import dataclass
 from typing import Any
 
 import jwt
+from pydantic import BaseModel, ConfigDict
 
 from thoth.config import Settings
 
@@ -27,8 +27,9 @@ def report(source: str, scope: str) -> str:
     return f"thoth.report:{source}@{scope}"
 
 
-@dataclass(frozen=True)
-class Caller:
+class Caller(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     name: str  # recorded as changed_by
     permissions: frozenset[str]
 
