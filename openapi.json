@@ -702,6 +702,45 @@
         "title": "ReportedRelation",
         "type": "object"
       },
+      "RetireStep": {
+        "description": "One step of an app's retirement.",
+        "properties": {
+          "app": {
+            "examples": [
+              "kitsune"
+            ],
+            "title": "App",
+            "type": "string"
+          },
+          "reason": {
+            "examples": [
+              "retire pass started: Meru/requests#13"
+            ],
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "decommissioning",
+              "retained"
+            ],
+            "examples": [
+              "decommissioning"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app",
+          "status",
+          "reason"
+        ],
+        "title": "RetireStep",
+        "type": "object"
+      },
       "Side": {
         "description": "Which side of the web to walk.",
         "enum": [
@@ -796,12 +835,13 @@
         "type": "string"
       },
       "Status": {
-        "description": "planned -> active <-> missing; active -> decommissioning -> retired; missing -> retired (D53).",
+        "description": "planned -> active <-> missing; (planned | active | missing) -> decommissioning -> retained -> retired;\nmissing -> retired (D53, D85).",
         "enum": [
           "planned",
           "active",
           "missing",
           "decommissioning",
+          "retained",
           "retired"
         ],
         "title": "Status",
@@ -1941,6 +1981,83 @@
           }
         ],
         "summary": "Rename Item",
+        "tags": [
+          "items"
+        ]
+      }
+    },
+    "/v1/retire-steps": {
+      "post": {
+        "description": "Shikigami's retire pass (D85): an app goes decommissioning when the pass starts and retained when its last step\nis done. Needs thoth.retire. A step already reached is answered as it is; nothing moves backwards.",
+        "operationId": "retire_step",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "app": "kitsune",
+                "reason": "retire pass started: Meru/requests#13",
+                "status": "decommissioning"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/RetireStep"
+              }
+            }
+          },
+          "description": "Which app, the step it reached, and why.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "attributes": {
+                    "kind": "physical",
+                    "os": "AlmaLinux 10.2"
+                  },
+                  "change_reason": "rename nitro5 -> clockmost-ai: the Nitro 5 became the AI node",
+                  "changed_at": "2026-10-29T12:00:00Z",
+                  "changed_by": "manual",
+                  "first_seen": "2026-10-01T12:00:00Z",
+                  "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                  "key": "clockmost-ai",
+                  "last_seen": "2026-10-29T12:00:00Z",
+                  "name": "clockmost-ai",
+                  "source": "host-scan",
+                  "status": "active",
+                  "type": "host"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ItemOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "example": {
+                  "status": 404,
+                  "title": "Not Found",
+                  "type": "about:blank"
+                }
+              }
+            },
+            "description": "Any error, as problem details."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Post Retire Step",
         "tags": [
           "items"
         ]

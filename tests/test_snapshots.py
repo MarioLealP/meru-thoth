@@ -151,7 +151,7 @@ def test_declared_is_planned_until_seen_and_declaration_wins(client: TestClient,
 def test_seeing_it_never_undoes_a_verdict(client: TestClient, db: Engine) -> None:
     put(client, "host-scan", "clockmost-desktop", DESKTOP)
     with Session(db) as session:
-        write_as(session, "shikigami", "retire request #1 finished")
+        write_as(session, "shikigami", "retire request #1 finished", retire=True)
         session.exec(text("update item set status = 'decommissioning'"))  # ty: ignore[no-matching-overload]
         session.commit()
     put(client, "host-scan", "clockmost-desktop", DESKTOP)

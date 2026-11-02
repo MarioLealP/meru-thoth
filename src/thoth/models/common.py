@@ -12,12 +12,14 @@ TIMESTAMP = sa.DateTime(timezone=True)
 
 
 class Status(StrEnum):
-    """planned -> active <-> missing; active -> decommissioning -> retired; missing -> retired (D53)."""
+    """planned -> active <-> missing; (planned | active | missing) -> decommissioning -> retained -> retired;
+    missing -> retired (D53, D85)."""
 
     PLANNED = "planned"  # declared by a request, not seen yet
     ACTIVE = "active"
     MISSING = "missing"  # Anubis found it gone, but a request still declares it
-    DECOMMISSIONING = "decommissioning"  # Shikigami finished taking it down; Anubis confirms
+    DECOMMISSIONING = "decommissioning"  # Shikigami's retire pass is taking it down. Only that pass sets it.
+    RETAINED = "retained"  # taken down and its trust revoked; its data kept until Charon purges. Only the pass sets it.
     RETIRED = "retired"  # gone - kept (no deletes), with its history. Only Anubis sets it.
 
 
