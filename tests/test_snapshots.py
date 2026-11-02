@@ -182,3 +182,32 @@ def test_things_that_come_and_go_wait_for_time_not_scans(client: TestClient) -> 
     put(client, "r7000-scan", "all", phone)
     for _ in range(5):  # off the Wi-Fi for five scans: normal for a phone
         assert put(client, "r7000-scan", "all").json()["for_anubis"] == []
+
+
+def test_the_cluster_scan_confirms_declared_apps_and_never_creates_them(client: TestClient, db: Engine) -> None:
+    put(client, "shikigami", "all", {"type": "app", "key": "tanuki", "name": "tanuki",
+                                     "attributes": {"template": "nuwa/python"}})  # fmt: skip
+    workload = {"type": "workload", "key": "clockmost/tanuki/deployment/tanuki", "name": "tanuki", "attributes": {}}
+    stray = {"type": "app", "key": "stray", "name": "stray", "attributes": {}}
+    response = put(client, "k8s-scan", "clockmost", workload, stray)
+    assert response.status_code == 422  # all or nothing: the workload isn't written either
+    assert [e["msg"] for e in response.json()["errors"]] == [
+        "items[1] (app stray): not declared - k8s-scan can confirm one, never create it"
+    ]
+    assert item(db, "app", "tanuki").status == Status.PLANNED
+
+    seen_app = {"type": "app", "key": "tanuki", "name": "tanuki", "attributes": {}}
+    assert put(client, "k8s-scan", "clockmost", workload, seen_app).status_code == 200
+    tanuki = item(db, "app", "tanuki")
+    assert (tanuki.status, tanuki.source, tanuki.attributes) == (
+        Status.ACTIVE,
+        "shikigami",
+        {"template": "nuwa/python"},
+    )
+
+
+def test_the_cluster_scan_sends_no_app_fields(client: TestClient) -> None:
+    put(client, "shikigami", "all", {"type": "app", "key": "tanuki", "name": "tanuki",
+                                     "attributes": {"template": "nuwa/python"}})  # fmt: skip
+    claimed = {"type": "app", "key": "tanuki", "name": "tanuki", "attributes": {"template": "nuwa/rust"}}
+    assert put(client, "k8s-scan", "clockmost", claimed).status_code == 422  # the template is Shikigami's
