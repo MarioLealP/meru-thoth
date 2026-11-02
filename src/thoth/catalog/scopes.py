@@ -29,10 +29,13 @@ def _host_scan(scope: str, type_name: str, key: str, attributes: dict[str, Any])
 
 
 def _k8s_scan(scope: str, type_name: str, key: str, attributes: dict[str, Any]) -> bool:
-    """One cluster: itself, what runs in it, and the images it pulls (images are shared, keyed by registry)."""
+    """One cluster: itself, what runs in it, the images it pulls (images are shared, keyed by registry), and the Meru
+    apps it sees running (D100) - keyed by bare name, so any app; CONFIRMS keeps it to apps already declared."""
     match type_name:
         case "cluster":
             return key == scope
+        case "app":
+            return True
         case "workload" | "database":
             return key.startswith(f"{scope}/")
         case "volume" | "account" | "group":
@@ -51,6 +54,13 @@ RULES: dict[str, Rule] = {Source.HOST: _host_scan, Source.K8S: _k8s_scan}
 # gets its list when it's built (D51); one without a list isn't limited yet.
 TYPES: dict[str, frozenset[str]] = {
     Source.SHIKIGAMI: frozenset({"app", "route", "bot"}),  # what was requested; databases etc. join as it declares them
+}
+
+
+# Types a source may only confirm, never create (D100): they exist because another source declared them. Heimdall
+# seeing a Meru-labelled namespace makes a declared app active; a label on something nobody asked for is refused.
+CONFIRMS: dict[str, frozenset[str]] = {
+    Source.K8S: frozenset({"app"}),
 }
 
 

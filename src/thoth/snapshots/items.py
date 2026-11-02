@@ -1,7 +1,8 @@
 """Item snapshots: phase 1 of a scan (D54).
 
 - Refused whole if anything in it is wrong: unknown type, a key that doesn't match its type, an item outside the
-  scope, a field the source doesn't own, or a field it owns but didn't send (= the scanner broke, D51).
+  scope, a field the source doesn't own, or a field it owns but didn't send (= the scanner broke, D51), or a new item
+  of a type the source may only confirm (D100).
 - New things become items (planned when Shikigami declares them, active when anything else sees them). The first
   source to report an item owns its name.
 - Each source's slice is stored per scope; the item's attributes are the slices merged by field precedence.
@@ -19,7 +20,7 @@ from sqlalchemy import tuple_
 from sqlmodel import Session, col, select
 
 from thoth.catalog import ITEMS, Source
-from thoth.catalog.scopes import in_scope, scope_problem
+from thoth.catalog.scopes import CONFIRMS, in_scope, scope_problem
 from thoth.models import Item, ItemObservation, Status
 from thoth.snapshots.common import (
     SnapshotRefused,
@@ -71,14 +72,23 @@ def apply_items(
 ) -> Summary:
     if errors := problems(source, scope, items):
         raise SnapshotRefused(errors)
-    begin(session, actor, source, scope, "items")
-
-    declaring = source == Source.SHIKIGAMI  # declares, doesn't see (D40, D53)
     pairs = [(i.type, i.key) for i in items]
     existing = {
         (i.type, i.key): i
         for i in (session.exec(select(Item).where(tuple_(col(Item.type), col(Item.key)).in_(pairs))) if pairs else [])
     }
+    confirm_only = CONFIRMS.get(source, frozenset())
+    undeclared = [(n, r) for n, r in enumerate(items) if r.type in confirm_only and (r.type, r.key) not in existing]
+    if undeclared:
+        raise SnapshotRefused(
+            [
+                f"items[{n}] ({r.type} {r.key}): not declared - {source} can confirm one, never create it"
+                for n, r in undeclared
+            ]
+        )
+    begin(session, actor, source, scope, "items")
+
+    declaring = source == Source.SHIKIGAMI  # declares, doesn't see (D40, D53)
     mine = {
         o.item_id: o
         for o in session.exec(
