@@ -15,6 +15,7 @@ from thoth.api.deps import CallerDep, Reader, get_engine
 from thoth.graph import Direction, walk
 from thoth.models import Item, Relation, Status
 from thoth.renames import Rename, RenameRefused, rename
+from thoth.retire_steps import RetireStep, StepRefused, retire_step
 
 router = APIRouter(tags=["items"])
 EngineDep = Annotated[Engine, Depends(get_engine)]
@@ -82,6 +83,36 @@ def rename_item(request: Rename, caller: CallerDep, engine: EngineDep) -> ItemOu
             raise HTTPException(refused.status, refused.detail) from refused
         except IntegrityError as e:  # someone took the key in the meantime
             raise HTTPException(409, f"{request.type} {request.new_key} already exists") from e
+        return ItemOut.model_validate(item, from_attributes=True)
+
+
+_RETIRE_STEP_EXAMPLE = {
+    "app": "kitsune",
+    "status": "decommissioning",
+    "reason": "retire pass started: Meru/requests#13",
+}
+
+
+@router.post(
+    "/retire-steps",
+    operation_id="retire_step",
+    openapi_extra={
+        "requestBody": {
+            "description": "Which app, the step it reached, and why.",
+            "content": {"application/json": {"example": _RETIRE_STEP_EXAMPLE}},
+        }
+    },
+    responses={200: {"content": {"application/json": {"example": _ITEM_EXAMPLE}}}},
+)
+def post_retire_step(request: RetireStep, caller: CallerDep, engine: EngineDep) -> ItemOut:
+    """Shikigami's retire pass (D85): an app goes decommissioning when the pass starts and retained when its last step
+    is done. Needs thoth.retire. A step already reached is answered as it is; nothing moves backwards."""
+    with Session(engine) as session:
+        try:
+            item = retire_step(session, request, caller)
+            session.commit()
+        except StepRefused as refused:
+            raise HTTPException(refused.status, refused.detail) from refused
         return ItemOut.model_validate(item, from_attributes=True)
 
 

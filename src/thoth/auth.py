@@ -9,6 +9,8 @@ needs. Authentik is the one place that grants permissions:
     thoth.report:<source>@<scope>       send that source's scans for that scope (and rename what it reported)
     thoth.manual                        corrections and renames by hand (Mario, via the atlas)
     thoth.verdict                       retire things (Anubis) - the database checks it too
+    thoth.retire                        mark an app decommissioning, then retained (Shikigami's retire pass, D85) -
+                                        the database checks it too
 
 Revocation model: local validation until expiry; a disabled bot stops within the token lifetime + leeway.
 """
@@ -20,7 +22,7 @@ from pydantic import BaseModel, ConfigDict
 
 from thoth.config import Settings
 
-READ, MANUAL, VERDICT = "thoth.read", "thoth.manual", "thoth.verdict"
+READ, MANUAL, VERDICT, RETIRE = "thoth.read", "thoth.manual", "thoth.verdict", "thoth.retire"
 
 
 def report(source: str, scope: str) -> str:
