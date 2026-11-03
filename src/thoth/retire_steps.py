@@ -1,9 +1,11 @@
 """Shikigami's retire pass, as Thoth sees it (D85): an app goes decommissioning when the pass starts and retained when
 its last step is done - stopped, trust revoked, data kept until Charon purges it. Only Anubis retires (D53).
+A restore (D106: the request is no longer removed, so onboarding runs again) takes it back to planned; the next scan
+that sees it makes it active.
 
 A retirement is a decision, not a sighting, so it isn't a snapshot: it's this one verb, for apps only, needing
-thoth.retire - and the database refuses both statuses without the flag that permission sets. A step that's already
-done is answered as it is (the pass retries), never moved backwards.
+thoth.retire - and the database refuses entering or leaving decommissioning/retained without the flag that permission
+sets (except Anubis' retired). A step that's already done is answered as it is (the pass retries).
 """
 
 from typing import Literal
@@ -19,14 +21,19 @@ from thoth.models import Item, Status
 FROM: dict[Status, set[Status]] = {
     Status.DECOMMISSIONING: {Status.PLANNED, Status.ACTIVE, Status.MISSING, Status.DECOMMISSIONING},
     Status.RETAINED: {Status.DECOMMISSIONING, Status.RETAINED},
+    Status.PLANNED: {Status.DECOMMISSIONING, Status.RETAINED, Status.PLANNED},  # a restore (D106)
 }
+# Already back: a retried restore after a scan saw the app again is answered as it is.
+RESTORED = {Status.ACTIVE, Status.MISSING}
 
 
 class RetireStep(BaseModel):
     """One step of an app's retirement."""
 
     app: str = Field(examples=["kitsune"])
-    status: Literal["decommissioning", "retained"] = Field(examples=["decommissioning"])
+    status: Literal["decommissioning", "retained", "planned"] = Field(
+        examples=["decommissioning"], description="planned = restored: onboarding runs again (D106)"
+    )
     reason: str = Field(min_length=1, max_length=500, examples=["retire pass started: Meru/requests#13"])
 
 
@@ -43,7 +50,7 @@ def retire_step(session: Session, step: RetireStep, caller: Caller) -> Item:
     if item is None:
         raise StepRefused(404, f"no app {step.app}")
     wanted = Status(step.status)
-    if item.status == wanted:
+    if item.status == wanted or (wanted == Status.PLANNED and item.status in RESTORED):
         return item
     if item.status not in FROM[wanted]:
         raise StepRefused(409, f"app {step.app} is {item.status}: {wanted} comes after {sorted(FROM[wanted])}")

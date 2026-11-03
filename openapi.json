@@ -722,9 +722,11 @@
             "type": "string"
           },
           "status": {
+            "description": "planned = restored: onboarding runs again (D106)",
             "enum": [
               "decommissioning",
-              "retained"
+              "retained",
+              "planned"
             ],
             "examples": [
               "decommissioning"
@@ -835,7 +837,7 @@
         "type": "string"
       },
       "Status": {
-        "description": "planned -> active <-> missing; (planned | active | missing) -> decommissioning -> retained -> retired;\nmissing -> retired (D53, D85).",
+        "description": "planned -> active <-> missing; (planned | active | missing) -> decommissioning -> retained -> retired;\nmissing -> retired (D53, D85); (decommissioning | retained) -> planned, a restore (D106).",
         "enum": [
           "planned",
           "active",
@@ -1988,7 +1990,7 @@
     },
     "/v1/retire-steps": {
       "post": {
-        "description": "Shikigami's retire pass (D85): an app goes decommissioning when the pass starts and retained when its last step\nis done. Needs thoth.retire. A step already reached is answered as it is; nothing moves backwards.",
+        "description": "Shikigami's retire pass (D85): an app goes decommissioning when the pass starts and retained when its last step\nis done; planned again when its request is restored (D106). Needs thoth.retire. A step already reached is answered\nas it is.",
         "operationId": "retire_step",
         "requestBody": {
           "content": {

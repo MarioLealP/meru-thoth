@@ -13,7 +13,7 @@ TIMESTAMP = sa.DateTime(timezone=True)
 
 class Status(StrEnum):
     """planned -> active <-> missing; (planned | active | missing) -> decommissioning -> retained -> retired;
-    missing -> retired (D53, D85)."""
+    missing -> retired (D53, D85); (decommissioning | retained) -> planned, a restore (D106)."""
 
     PLANNED = "planned"  # declared by a request, not seen yet
     ACTIVE = "active"

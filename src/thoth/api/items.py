@@ -106,7 +106,8 @@ _RETIRE_STEP_EXAMPLE = {
 )
 def post_retire_step(request: RetireStep, caller: CallerDep, engine: EngineDep) -> ItemOut:
     """Shikigami's retire pass (D85): an app goes decommissioning when the pass starts and retained when its last step
-    is done. Needs thoth.retire. A step already reached is answered as it is; nothing moves backwards."""
+    is done; planned again when its request is restored (D106). Needs thoth.retire. A step already reached is answered
+    as it is."""
     with Session(engine) as session:
         try:
             item = retire_step(session, request, caller)

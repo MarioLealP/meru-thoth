@@ -1,4 +1,5 @@
-"""Shikigami's retire pass in Thoth (D85): decommissioning, then retained - only with thoth.retire, enforced twice."""
+"""Shikigami's retire pass in Thoth (D85): decommissioning, then retained - and planned again on a restore (D106) - only
+with thoth.retire, enforced twice."""
 
 from typing import Any
 
@@ -61,6 +62,29 @@ def test_seeing_a_retiring_app_does_not_bring_it_back(client: TestClient, db: En
     assert item(db, "app", "kitsune").status == Status.DECOMMISSIONING
 
 
+@pytest.mark.parametrize("reached", ["decommissioning", "retained"])
+def test_a_restore_takes_it_back_to_planned_and_a_scan_makes_it_active(
+    client: TestClient, db: Engine, reached: str
+) -> None:
+    put(client, "shikigami", "all", KITSUNE)
+    step(client, "decommissioning")
+    step(client, reached)
+    back = step(client, "planned")
+    assert back.status_code == 200, back.text
+    assert (back.json()["status"], back.json()["change_reason"]) == ("planned", "planned: requests#13")
+    seen = {"type": "app", "key": "kitsune", "name": "kitsune", "attributes": {}}
+    put(client, "k8s-scan", "clockmost", seen)
+    assert item(db, "app", "kitsune").status == Status.ACTIVE
+    again = step(client, "planned")  # a retried restore after the scan: answered as it is
+    assert (again.status_code, again.json()["status"]) == (200, "active")
+
+
+def test_a_restored_app_can_be_retired_again(client: TestClient) -> None:
+    put(client, "shikigami", "all", KITSUNE)
+    for status in ("decommissioning", "retained", "planned", "decommissioning", "retained"):
+        assert step(client, status).status_code == 200
+
+
 def test_refusals(client: TestClient) -> None:
     put(client, "shikigami", "all", KITSUNE)
     assert step(client, "decommissioning", app="nope").status_code == 404
@@ -78,3 +102,14 @@ def test_the_database_refuses_it_without_the_retire_flag(client: TestClient, db:
         write_as(session, "manual", "trying it by hand")
         with pytest.raises(DBAPIError, match="only the retire pass sets"):
             session.exec(text(f"update item set status = '{status}'"))  # ty: ignore[no-matching-overload]
+
+
+@pytest.mark.parametrize("to", ["planned", "active"])
+def test_the_database_refuses_bringing_it_back_without_the_retire_flag(client: TestClient, db: Engine, to: str) -> None:
+    put(client, "shikigami", "all", KITSUNE)
+    step(client, "decommissioning")
+    step(client, "retained")
+    with Session(db) as session:
+        write_as(session, "manual", "trying it by hand")
+        with pytest.raises(DBAPIError, match="only the retire pass takes a item row out of retained"):
+            session.exec(text(f"update item set status = '{to}'"))  # ty: ignore[no-matching-overload]
