@@ -4,7 +4,8 @@ It lives in the database, not the app, so no code path can skip it - not a buggy
 psql. The app passes who and why per transaction with `thoth.db.write_as`, which sets two settings these functions
 read: `thoth.actor` and `thoth.reason`. Deleting needs a third, `thoth.purge = on`, which only Charon's yearly
 purge sets. Only a writer with the verdict flag (Anubis) may set status retired (D53, D56), and only one with the
-retire flag (Shikigami's retire pass) decommissioning or retained (D85). The running app's
+retire flag (Shikigami's retire pass) decommissioning or retained (D85), or take an app out of them again - a restore,
+D106 - unless it's Anubis retiring it. The running app's
 role can't write history at all (D58) - only this function, as the tables' owner, adds versions.
 """
 
@@ -43,6 +44,14 @@ BEGIN
        AND (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM NEW.status) THEN
         RAISE EXCEPTION 'thoth: only the retire pass sets % (% tried on a % row without thoth.retire)', NEW.status,
             actor, TG_TABLE_NAME;
+    END IF;
+
+    -- ... and only it brings one back (a restore, D106); Anubis' retired is the other way out.
+    IF TG_OP = 'UPDATE' AND OLD.status IN ('decommissioning', 'retained')
+       AND NEW.status NOT IN ('decommissioning', 'retained', 'retired')
+       AND current_setting('thoth.retire', true) IS DISTINCT FROM 'on' THEN
+        RAISE EXCEPTION 'thoth: only the retire pass takes a % row out of % (% tried, without thoth.retire)',
+            TG_TABLE_NAME, OLD.status, actor;
     END IF;
 
     IF TG_OP = 'DELETE' THEN

@@ -9,8 +9,8 @@ needs. Authentik is the one place that grants permissions:
     thoth.report:<source>@<scope>       send that source's scans for that scope (and rename what it reported)
     thoth.manual                        corrections and renames by hand (Mario, via the atlas)
     thoth.verdict                       retire things (Anubis) - the database checks it too
-    thoth.retire                        mark an app decommissioning, then retained (Shikigami's retire pass, D85) -
-                                        the database checks it too
+    thoth.retire                        mark an app decommissioning, then retained (Shikigami's retire pass, D85),
+                                        or planned again (a restore, D106) - the database checks it too
 
 Revocation model: local validation until expiry; a disabled bot stops within the token lifetime + leeway.
 """
