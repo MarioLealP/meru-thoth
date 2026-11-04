@@ -11,9 +11,17 @@ from sqlmodel import Field, SQLModel
 TIMESTAMP = sa.DateTime(timezone=True)
 
 
+def table_of(model: type[SQLModel]) -> sa.Table:
+    """The Core table behind a `table=True` model."""
+    return SQLModel.metadata.tables[str(model.__tablename__)]
+
+
 class Status(StrEnum):
-    """planned -> active <-> missing; (planned | active | missing) -> decommissioning -> retained -> retired;
-    missing -> retired (D53, D85); (decommissioning | retained) -> planned, a restore (D106)."""
+    """Where a thing is in its life.
+
+    planned -> active <-> missing; (planned | active | missing) -> decommissioning -> retained -> retired;
+    missing -> retired (D53, D85); (decommissioning | retained) -> planned, a restore (D106).
+    """
 
     PLANNED = "planned"  # declared by a request, not seen yet
     ACTIVE = "active"
@@ -24,6 +32,7 @@ class Status(StrEnum):
 
 
 def status_type() -> sa.Enum:
+    """The column type of a status."""
     # text + CHECK, not a native Postgres enum: adding a status later is one constraint change.
     return sa.Enum(
         Status,

@@ -1,7 +1,7 @@
 """All tables, imported so SQLModel.metadata (and Alembic) sees them."""
 
 from thoth.models.catalog import ItemType, RelationType
-from thoth.models.common import Status
+from thoth.models.common import Status, table_of
 from thoth.models.history import ItemHistory, RelationHistory
 from thoth.models.inventory import Item, ItemObservation, Relation, RelationObservation, SnapshotRun
 
@@ -16,4 +16,5 @@ __all__ = [
     "RelationType",
     "SnapshotRun",
     "Status",
+    "table_of",
 ]

@@ -1,5 +1,7 @@
-"""Write the generated contracts, committed so every PR shows how they changed:
-openapi.json (the API) and catalog.json (the item and relation types).
+"""Write the generated contracts.
+
+They are committed so every PR shows how they changed: openapi.json (the API) and catalog.json (the item and relation
+types).
 
     uv run scripts/generate.py           write them
     uv run scripts/generate.py --check   fail if a committed copy is stale

@@ -1,4 +1,4 @@
-"""Fetch the pinned contract checkers into .tools/bin and print that directory. Stdlib only.
+"""Fetch the pinned contract checkers into .tools/bin and print that directory.
 
 The same binaries run locally and in CI: each release archive is checked against its sha256 before use.
 """
@@ -7,8 +7,9 @@ import hashlib
 import io
 import sys
 import tarfile
-import urllib.request
 from pathlib import Path
+
+import httpx2
 
 TOOLS = {
     "vacuum": (  # v0.35.7
@@ -25,11 +26,13 @@ BIN = Path(__file__).resolve().parent.parent / ".tools" / "bin"
 
 
 def fetch(name: str, url: str, sha256: str) -> None:
+    """Put one tool in BIN, unless the right version is already there."""
     stamp = BIN / f".{name}.sha256"
     if (BIN / name).exists() and stamp.exists() and stamp.read_text() == sha256:
         return
-    with urllib.request.urlopen(url, timeout=60) as response:
-        archive = response.read()
+    response = httpx2.get(url, timeout=60, follow_redirects=True)  # GitHub answers release downloads with a redirect
+    response.raise_for_status()
+    archive = response.content
     if hashlib.sha256(archive).hexdigest() != sha256:
         sys.exit(f"{name}: checksum mismatch for {url}")
     with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
@@ -43,6 +46,7 @@ def fetch(name: str, url: str, sha256: str) -> None:
 
 
 def main() -> None:
+    """Fetch every tool and print where they are."""
     BIN.mkdir(parents=True, exist_ok=True)
     for name, (url, sha256) in TOOLS.items():
         fetch(name, url, sha256)

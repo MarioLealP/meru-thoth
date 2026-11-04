@@ -5,7 +5,7 @@ new key and land on the same item; a scanner still reporting the old key creates
 name still exists.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session, select
 
 from thoth.auth import MANUAL, Caller
@@ -17,6 +17,8 @@ from thoth.models import Item, Status
 class Rename(BaseModel):
     """Give an item a new key (and optionally a new name)."""
 
+    model_config = ConfigDict(frozen=True)
+
     type: str = Field(examples=["host"])
     key: str = Field(examples=["nitro5"])
     new_key: str = Field(examples=["clockmost-ai"])
@@ -24,27 +26,30 @@ class Rename(BaseModel):
     reason: str = Field(min_length=1, examples=["the Nitro 5 became the AI node"])
 
 
-class RenameRefused(Exception):
+class RenameRefusedError(Exception):
+    """A rename turned down, with the HTTP status that says why."""
+
     def __init__(self, status: int, detail: str) -> None:
         super().__init__(detail)
         self.status, self.detail = status, detail
 
 
 def rename(session: Session, request: Rename, caller: Caller) -> Item:
+    """Give an item a new key and flush it; the caller commits."""
     spec = ITEMS.get(request.type)
     if spec is None:
-        raise RenameRefused(422, f"unknown type {request.type}")
+        raise RenameRefusedError(422, f"unknown type {request.type}")
     if not spec.key_ok(request.new_key):
-        raise RenameRefused(422, f"{request.new_key} doesn't match {spec.key_pattern}")
+        raise RenameRefusedError(422, f"{request.new_key} doesn't match {spec.key_pattern}")
     item = session.exec(select(Item).where(Item.type == request.type, Item.key == request.key)).first()
     if item is None:
-        raise RenameRefused(404, f"no {request.type} {request.key}")
+        raise RenameRefusedError(404, f"no {request.type} {request.key}")
     if not (caller.may(MANUAL) or caller.reports_as(item.source)):
-        raise RenameRefused(403, f"needs {MANUAL}, or to report as {item.source} (which reported it first)")
+        raise RenameRefusedError(403, f"needs {MANUAL}, or to report as {item.source} (which reported it first)")
     if item.status == Status.RETIRED:
-        raise RenameRefused(409, f"{request.type} {request.key} is retired")
+        raise RenameRefusedError(409, f"{request.type} {request.key} is retired")
     if session.exec(select(Item).where(Item.type == request.type, Item.key == request.new_key)).first():
-        raise RenameRefused(409, f"{request.type} {request.new_key} already exists")
+        raise RenameRefusedError(409, f"{request.type} {request.new_key} already exists")
 
     write_as(session, caller.name, f"rename {request.key} -> {request.new_key}: {request.reason}")
     item.key = request.new_key

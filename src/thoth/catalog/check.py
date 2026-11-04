@@ -6,6 +6,7 @@ Loads everything into memory - fine at home-lab size (thousands of rows).
 """
 
 from collections import defaultdict
+from collections.abc import Sequence
 from typing import Any
 
 from pydantic import ValidationError
@@ -13,48 +14,62 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlmodel import Session, select
 
 from thoth.catalog import ANY_TYPE, ITEMS, RELATIONS
+from thoth.catalog.base import Spec
 from thoth.models import Item, ItemObservation, ItemType, Relation, RelationObservation, RelationType
 from thoth.snapshots import current_slices
 
 
 def problems(session: Session) -> list[str]:
-    found = []
+    """Everything stored that doesn't fit the catalog in this code, one line each."""
     items = {item.id: item for item in session.exec(select(Item))}
-    observations: dict[Any, list[ItemObservation]] = defaultdict(list)
+    item_observations: dict[Any, list[ItemObservation]] = defaultdict(list)
     for obs in session.exec(select(ItemObservation)):
-        observations[obs.item_id].append(obs)
-
-    for item in items.values():
-        where = f"{item.type} {item.key}"
-        spec = ITEMS.get(item.type)
-        if spec is None:
-            found.append(f"{where}: unknown type")
-            continue
-        if not spec.key_ok(item.key):
-            found.append(f"{where}: key doesn't match {spec.key_pattern}")
-        for obs in observations[item.id]:
-            errors = _invalid(spec.slice_for(obs.source), obs.attributes)
-            found += [f"{where}, from {obs.source}@{obs.scope}: {e}" for e in errors]
-        if item.attributes != spec.merge(current_slices(observations[item.id])):
-            found.append(f"{where}: attributes don't match the merged observations")
-
+        item_observations[obs.item_id].append(obs)
     rel_observations: dict[Any, list[RelationObservation]] = defaultdict(list)
     for obs in session.exec(select(RelationObservation)):
         rel_observations[obs.relation_id].append(obs)
+
+    found = []
+    for item in items.values():
+        found += _item_problems(item, item_observations[item.id])
     for rel in session.exec(select(Relation)):
-        a, b = items[rel.from_item], items[rel.to_item]
-        where = f"{a.type} {a.key} {rel.type} {b.type} {b.key}"
-        spec = RELATIONS.get(rel.type)
-        if spec is None:
-            found.append(f"{where}: unknown relation type")
-            continue
-        if not {ANY_TYPE, a.type} & spec.from_types or not {ANY_TYPE, b.type} & spec.to_types:
-            found.append(f"{where}: {rel.type} doesn't allow these item types")
-        for obs in rel_observations[rel.id]:
-            errors = _invalid(spec.slice_for(obs.source), obs.attributes)
-            found += [f"{where}, from {obs.source}@{obs.scope}: {e}" for e in errors]
-        if rel.attributes != spec.merge(current_slices(rel_observations[rel.id])):
-            found.append(f"{where}: attributes don't match the merged observations")
+        found += _relation_problems(rel, items[rel.from_item], items[rel.to_item], rel_observations[rel.id])
+    return found
+
+
+def _item_problems(item: Item, observations: list[ItemObservation]) -> list[str]:
+    where = f"{item.type} {item.key}"
+    spec = ITEMS.get(item.type)
+    if spec is None:
+        return [f"{where}: unknown type"]
+    found = [] if spec.key_ok(item.key) else [f"{where}: key doesn't match {spec.key_pattern}"]
+    return found + _slice_problems(where, spec, item.attributes, observations)
+
+
+def _relation_problems(rel: Relation, a: Item, b: Item, observations: list[RelationObservation]) -> list[str]:
+    where = f"{a.type} {a.key} {rel.type} {b.type} {b.key}"
+    spec = RELATIONS.get(rel.type)
+    if spec is None:
+        return [f"{where}: unknown relation type"]
+    found = []
+    if not {ANY_TYPE, a.type} & spec.from_types or not {ANY_TYPE, b.type} & spec.to_types:
+        found.append(f"{where}: {rel.type} doesn't allow these item types")
+    return found + _slice_problems(where, spec, rel.attributes, observations)
+
+
+def _slice_problems(
+    where: str,
+    spec: type[Spec],
+    attributes: dict[str, Any],
+    observations: Sequence[ItemObservation | RelationObservation],
+) -> list[str]:
+    """Each stored slice must still fit its source's fields, and the merged slices must equal `attributes`."""
+    found = []
+    for obs in observations:
+        errors = _invalid(spec.slice_for(obs.source), obs.attributes)
+        found += [f"{where}, from {obs.source}@{obs.scope}: {e}" for e in errors]
+    if attributes != spec.merge(current_slices(observations)):
+        found.append(f"{where}: attributes don't match the merged observations")
     return found
 
 

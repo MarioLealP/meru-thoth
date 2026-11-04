@@ -3,9 +3,10 @@
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine
 from sqlmodel import Session
 
+from tests.conftest import run_sql
 from tests.test_relations import link, rel
 from tests.test_snapshots import item, put
 from thoth.db import write_as
@@ -78,11 +79,10 @@ def test_retired_links_are_not_walked(client: TestClient, db: Engine) -> None:
     web(client, ("echo", "shikigami"), ("shikigami", "temporal"))
     with Session(db) as session:
         write_as(session, "svc+anubis", "nightly verdict: gone", verdict=True)
-        session.exec(
-            text(
-                "update relation set status = 'retired' where from_item = (select id from item where key = 'shikigami')"
-            )
-        )  # ty: ignore[no-matching-overload]
+        run_sql(
+            session,
+            "update relation set status = 'retired' where from_item = (select id from item where key = 'shikigami')",
+        )
         session.commit()
     assert reached(walk(client, db, "echo", "dependencies")) == [("shikigami", 1)]
 

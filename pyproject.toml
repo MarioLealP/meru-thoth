@@ -12,6 +12,7 @@ dependencies = [
     "alembic-utils>=0.8.8",
     "fastapi>=0.162.0",
     "psycopg[binary]>=3.3.6",
+    "pydantic>=2.14.1",
     "pydantic-settings>=2.16.2",
     "pyjwt[crypto]>=2.15.1",
     "sqlmodel>=0.0.48",
@@ -52,10 +53,17 @@ options = "format REVISION_SCRIPT_FILENAME"
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+preview = true
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "Q", "C4", "FAST", "N", "PT", "ERA", "D", "complex-structure"]
+ignore = ["undocumented-public-init"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"migrations/versions/*" = ["E501"]  # alembic_utils writes function bodies as one string
+"tests/**" = ["D", "unused-async"]
+# Generated: alembic_utils writes function bodies as one string; alembic's first line is the message, no period.
+"migrations/versions/*" = ["line-too-long", "missing-terminal-punctuation"]
 
 [tool.ty.src]
 exclude = ["migrations/versions"]  # generated; alembic_utils adds op.create_entity at runtime

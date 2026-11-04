@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, func
+from sqlalchemy import Engine, delete, func
 from sqlmodel import Session, select
 
 from thoth.catalog import ITEMS, RELATIONS
@@ -25,7 +25,7 @@ def add_host(db: Engine, key: str, attributes: dict, observed: dict | None = Non
 
 def test_ready_syncs_the_catalog(client: TestClient, db: Engine) -> None:
     with Session(db) as session:
-        session.exec(ItemType.__table__.delete())  # ty: ignore[unresolved-attribute]
+        session.exec(delete(ItemType))
         session.commit()
     response = client.get("/ready")
     assert response.status_code == 200, response.text

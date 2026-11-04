@@ -5,10 +5,11 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine
 from sqlalchemy.exc import DBAPIError
 from sqlmodel import Session
 
+from tests.conftest import run_sql
 from tests.test_snapshots import history, item, put
 from tests.tokens import bearer
 from thoth.auth import READ, RETIRE, report
@@ -101,7 +102,7 @@ def test_the_database_refuses_it_without_the_retire_flag(client: TestClient, db:
     with Session(db) as session:
         write_as(session, "manual", "trying it by hand")
         with pytest.raises(DBAPIError, match="only the retire pass sets"):
-            session.exec(text(f"update item set status = '{status}'"))  # ty: ignore[no-matching-overload]
+            run_sql(session, f"update item set status = '{status}'")
 
 
 @pytest.mark.parametrize("to", ["planned", "active"])
@@ -112,4 +113,4 @@ def test_the_database_refuses_bringing_it_back_without_the_retire_flag(client: T
     with Session(db) as session:
         write_as(session, "manual", "trying it by hand")
         with pytest.raises(DBAPIError, match="only the retire pass takes a item row out of retained"):
-            session.exec(text(f"update item set status = '{to}'"))  # ty: ignore[no-matching-overload]
+            run_sql(session, f"update item set status = '{to}'")

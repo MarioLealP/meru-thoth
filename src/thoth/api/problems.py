@@ -10,7 +10,7 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from starlette.exceptions import HTTPException
 
 MEDIA_TYPE = "application/problem+json"
@@ -18,6 +18,8 @@ MEDIA_TYPE = "application/problem+json"
 
 class Problem(BaseModel):
     """What went wrong (RFC 9457 problem details)."""
+
+    model_config = ConfigDict(frozen=True)
 
     type: str = Field(default="about:blank", examples=["about:blank"])
     title: str = Field(examples=["Not Found"])
@@ -42,24 +44,25 @@ def _respond(problem: Problem, headers: dict[str, str] | None = None) -> JSONRes
     )
 
 
-async def _http_error(_: Request, exc: Exception) -> JSONResponse:
+def _http_error(_: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, HTTPException)
     problem = Problem(title=HTTPStatus(exc.status_code).phrase, status=exc.status_code, detail=exc.detail)
     return _respond(problem, getattr(exc, "headers", None))
 
 
-async def _problem_error(_: Request, exc: Exception) -> JSONResponse:
+def _problem_error(_: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, ProblemError)
     return _respond(exc.problem)
 
 
-async def _validation_error(_: Request, exc: Exception) -> JSONResponse:
+def _validation_error(_: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, RequestValidationError)
     errors = [{"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]} for e in exc.errors()]
     return _respond(Problem(title="Unprocessable Content", status=422, detail="the request is invalid", errors=errors))
 
 
 def install(app: FastAPI) -> None:
+    """Make `app` answer every error as problem details."""
     app.add_exception_handler(HTTPException, _http_error)
     app.add_exception_handler(RequestValidationError, _validation_error)
     app.add_exception_handler(ProblemError, _problem_error)

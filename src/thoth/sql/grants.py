@@ -19,6 +19,7 @@ from thoth.models import (
     RelationObservation,
     RelationType,
     SnapshotRun,
+    table_of,
 )
 
 APP_ROLE = "thoth_app"
@@ -36,7 +37,7 @@ READ: list[type[SQLModel]] = [ItemHistory, RelationHistory]
 
 
 def _grants(model: type[SQLModel], *privileges: str) -> list[PGGrantTable]:
-    table = model.__table__  # ty: ignore[unresolved-attribute]  # SQLModel sets it for table=True models
+    table = table_of(model)
     columns = sorted(column.name for column in table.columns)
     return [
         PGGrantTable(schema="public", table=table.name, columns=columns, role=APP_ROLE, grant=privilege)

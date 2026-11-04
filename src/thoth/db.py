@@ -11,13 +11,16 @@ from thoth.config import get_settings
 
 
 def make_engine(url: str | None = None) -> Engine:
+    """An engine on `url`, by default the configured database."""
     return create_engine(url or get_settings().database_url.get_secret_value(), pool_pre_ping=True)
 
 
 def write_as(session: Session, actor: str, reason: str, *, verdict: bool = False, retire: bool = False) -> None:
-    """Mark the current transaction with who writes and why (both reset when it ends). `verdict` only for a caller
-    with thoth.verdict (Anubis): the trigger refuses to retire anything without it. `retire` only for a caller with
-    thoth.retire (Shikigami): the trigger refuses decommissioning and retained without it."""
+    """Mark the current transaction with who writes and why (both reset when it ends).
+
+    `verdict` only for a caller with thoth.verdict (Anubis): the trigger refuses to retire anything without it. `retire`
+    only for a caller with thoth.retire (Shikigami): the trigger refuses decommissioning and retained without it.
+    """
     if not actor or not reason:
         raise ValueError("a write needs an actor and a reason")
     # Not session.exec: that autoflushes, writing pending changes *before* the context is set - the trigger

@@ -14,6 +14,7 @@ from thoth.catalog.compat import breaking_changes
 
 
 def git(*args: str) -> subprocess.CompletedProcess[str]:
+    """Run git, capturing its output; the caller reads the return code."""
     return subprocess.run(["git", *args], capture_output=True, text=True)
 
 

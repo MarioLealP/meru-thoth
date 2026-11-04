@@ -1,14 +1,16 @@
+"""Routes for scans: what sources report, and the log of their snapshots."""
+
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Path
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Path
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Engine
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlmodel import Session, col, select
 
 from thoth import snapshots
-from thoth.api.deps import CallerDep, Reader, get_engine
+from thoth.api.deps import CallerDep, EngineDep, Reader
 from thoth.api.problems import Problem, ProblemError
 from thoth.auth import Caller, report
 from thoth.catalog import Source
@@ -32,7 +34,6 @@ ScopePath = Annotated[
         examples=["clockmost-desktop"],
     ),
 ]
-EngineDep = Annotated[Engine, Depends(get_engine)]
 
 _DESKTOP = {"type": "host", "key": "clockmost-desktop"}
 _BENYLIN = {"type": "account", "key": "linux/clockmost-desktop/benylin"}
@@ -62,17 +63,23 @@ _RUN_EXAMPLE = {
 class ItemSnapshot(BaseModel):
     """Every item a source sees from one scope - its whole picture, not a diff."""
 
+    model_config = ConfigDict(frozen=True)
+
     items: list[ReportedItem] = Field(max_length=20_000, examples=[_ITEMS_EXAMPLE["items"]])
 
 
 class RelationSnapshot(BaseModel):
     """Every link a source sees from one scope."""
 
+    model_config = ConfigDict(frozen=True)
+
     relations: list[ReportedRelation] = Field(max_length=50_000, examples=[_RELATIONS_EXAMPLE["relations"]])
 
 
 class SnapshotRunOut(BaseModel):
     """A source's latest snapshot: when, and whether it was accepted (with counts) or refused (with reasons)."""
+
+    model_config = ConfigDict(frozen=True)
 
     scan_id: str = Field(examples=["scan-2026-10-29T12-00"])
     kind: str = Field(examples=["items"])
@@ -98,7 +105,7 @@ def _record(engine: Engine, run: dict[str, Any], apply: Any) -> Summary:
     with Session(engine) as session:
         try:
             summary = apply(session)
-        except snapshots.SnapshotRefused as refused:
+        except snapshots.SnapshotRefusedError as refused:
             session.rollback()
             errors = refused.errors
             session.add(SnapshotRun(**run, accepted=False, summary={"errors": errors[:100]}))
@@ -119,6 +126,7 @@ def _record(engine: Engine, run: dict[str, Any], apply: Any) -> Summary:
 @router.put(
     "/scans/{scan_id}/{source}/{scope}/items",
     operation_id="put_scan_items",
+    status_code=200,
     openapi_extra=_body("Every item the source sees from this scope.", _ITEMS_EXAMPLE),
 )
 def put_scan_items(
@@ -129,8 +137,11 @@ def put_scan_items(
     caller: CallerDep,
     engine: EngineDep,
 ) -> Summary:
-    """Phase 1 of a scan: what `source` sees from `scope`. All or nothing - anything wrong refuses the whole snapshot
-    and keeps the last good data (the refusal is logged, for Zabbix). Sending the same scan again changes nothing."""
+    """Phase 1 of a scan: what `source` sees from `scope`.
+
+    All or nothing - anything wrong refuses the whole snapshot and keeps the last good data (the refusal is logged, for
+    Zabbix). Sending the same scan again changes nothing.
+    """
     _may_report(caller, source, scope)
     now = datetime.now(UTC)
     run = {"scan_id": scan_id, "kind": "items", "source": source, "scope": scope, "at": now}
@@ -142,6 +153,7 @@ def put_scan_items(
 @router.put(
     "/scans/{scan_id}/{source}/{scope}/relations",
     operation_id="put_scan_relations",
+    status_code=200,
     openapi_extra=_body("Every link the source sees from this scope.", _RELATIONS_EXAMPLE),
 )
 def put_scan_relations(
@@ -152,8 +164,11 @@ def put_scan_relations(
     caller: CallerDep,
     engine: EngineDep,
 ) -> Summary:
-    """Phase 2 of a scan, once every source's items are in. A link whose other end doesn't exist yet is skipped and
-    listed (it heals on the next scan); anything else wrong refuses the whole snapshot."""
+    """Phase 2 of a scan, once every source's items are in.
+
+    A link whose other end doesn't exist yet is skipped and listed (it heals on the next scan); anything else wrong
+    refuses the whole snapshot.
+    """
     _may_report(caller, source, scope)
     now = datetime.now(UTC)
     run = {"scan_id": scan_id, "kind": "relations", "source": source, "scope": scope, "at": now}
@@ -167,6 +182,7 @@ def put_scan_relations(
 @router.get(
     "/snapshots",
     operation_id="list_snapshots",
+    status_code=200,
     responses={200: {"content": {"application/json": {"example": [_RUN_EXAMPLE]}}}},
 )
 def list_snapshots(_: Reader, engine: EngineDep) -> list[SnapshotRunOut]:

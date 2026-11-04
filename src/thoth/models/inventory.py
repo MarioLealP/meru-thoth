@@ -12,11 +12,13 @@ from thoth.models.common import TIMESTAMP, Tracked
 
 
 class Item(Tracked, table=True):
-    """One thing: a host, an app, an account, a volume... `id` never changes; `type` + `key` is how the outside
-    world (and every scanner) finds it."""
+    """One thing: a host, an app, an account, a volume...
+
+    `id` never changes; `type` + `key` is how the outside world (and every scanner) finds it.
+    """
 
     __tablename__ = "item"
-    __table_args__ = (sa.UniqueConstraint("type", "key"),)
+    __table_args__ = (sa.UniqueConstraint("type", "key", name="item_type_key_key"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     type: str = Field(foreign_key="item_type.name", max_length=64)
@@ -29,19 +31,23 @@ class Relation(Tracked, table=True):
 
     __tablename__ = "relation"
     __table_args__ = (
-        sa.UniqueConstraint("type", "from_item", "to_item"),
+        sa.UniqueConstraint("type", "from_item", "to_item", name="relation_type_from_item_to_item_key"),
+        sa.Index("ix_relation_from_item", "from_item"),
+        sa.Index("ix_relation_to_item", "to_item"),
         sa.CheckConstraint("from_item <> to_item", name="relation_not_to_itself"),
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     type: str = Field(foreign_key="relation_type.name", max_length=64)
-    from_item: UUID = Field(foreign_key="item.id", index=True)
-    to_item: UUID = Field(foreign_key="item.id", index=True)
+    from_item: UUID = Field(foreign_key="item.id")
+    to_item: UUID = Field(foreign_key="item.id")
 
 
 class ItemObservation(SQLModel, table=True):
-    """What one source reported about one item from one scope (where it looked) - its slice. The API merges the
-    slices into `item.attributes`, so observations churn with every scan and are not versioned; the merged item is.
+    """What one source reported about one item from one scope (where it looked) - its slice.
+
+    The API merges the slices into `item.attributes`, so observations churn with every scan and are not versioned; the
+    merged item is.
     """
 
     __tablename__ = "item_observation"

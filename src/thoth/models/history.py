@@ -7,6 +7,7 @@ deletes here too. "As of <date>" questions read only these tables.
 from datetime import datetime
 from uuid import UUID, uuid4
 
+import sqlalchemy as sa
 from sqlmodel import Field
 
 from thoth.models.common import TIMESTAMP, Tracked
@@ -19,18 +20,24 @@ class _Version(Tracked):
 
 
 class ItemHistory(_Version, table=True):
-    __tablename__ = "item_history"
+    """An earlier version of an item."""
 
-    id: UUID = Field(foreign_key="item.id", index=True)
+    __tablename__ = "item_history"
+    __table_args__ = (sa.Index("ix_item_history_id", "id"),)
+
+    id: UUID = Field(foreign_key="item.id")
     type: str = Field(max_length=64)
     key: str
     name: str
 
 
 class RelationHistory(_Version, table=True):
-    __tablename__ = "relation_history"
+    """An earlier version of a relation."""
 
-    id: UUID = Field(foreign_key="relation.id", index=True)
+    __tablename__ = "relation_history"
+    __table_args__ = (sa.Index("ix_relation_history_id", "id"),)
+
+    id: UUID = Field(foreign_key="relation.id")
     type: str = Field(max_length=64)
     from_item: UUID
     to_item: UUID

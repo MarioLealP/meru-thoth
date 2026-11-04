@@ -24,6 +24,8 @@ class Direction(StrEnum):
 
 
 class Step(BaseModel):
+    """An item the walk reached, at its shortest distance."""
+
     model_config = ConfigDict(frozen=True)
 
     item_id: UUID
@@ -32,6 +34,8 @@ class Step(BaseModel):
 
 
 class Walk(BaseModel):
+    """A finished walk: what it reached, the loops it met, and the items to name them."""
+
     model_config = ConfigDict(frozen=True)
 
     steps: list[Step]
@@ -40,6 +44,7 @@ class Walk(BaseModel):
 
 
 def walk(session: Session, root: UUID, direction: Direction, max_depth: int) -> Walk:
+    """Walk the relations from `root` in `direction`, at most `max_depth` links away."""
     r = sa.table(Relation.__tablename__, sa.column("id"), sa.column("from_item"), sa.column("to_item"),
                  sa.column("status"))  # fmt: skip
     near, far = (r.c.to_item, r.c.from_item) if direction == Direction.IMPACT else (r.c.from_item, r.c.to_item)

@@ -43,7 +43,8 @@ class Group(ItemSpec):
 class Account(ItemSpec):
     """A login on one system, keyed `<system>/<login>`: authentik/mario, linux/clockmost/benylin, gitea/MarioGLealP.
 
-    Every account should resolve to a person or a bot - one that doesn't is unexplained."""
+    Every account should resolve to a person or a bot - one that doesn't is unexplained.
+    """
 
     type_name = "account"
     key_pattern: ClassVar[str] = rf"^{_SYSTEM}/{_LOGIN}$"

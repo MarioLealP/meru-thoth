@@ -1,29 +1,31 @@
+"""Routes for items: renames, retire steps, reads, the web around an item and its history."""
+
 from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any
 from uuid import UUID
 
 import sqlalchemy as sa
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from pydantic import BaseModel, Field
-from sqlalchemy import Engine
+from fastapi import APIRouter, HTTPException, Path, Query
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 from thoth import history
-from thoth.api.deps import CallerDep, Reader, get_engine
+from thoth.api.deps import CallerDep, EngineDep, Reader
 from thoth.graph import Direction, walk
-from thoth.models import Item, Relation, Status
-from thoth.renames import Rename, RenameRefused, rename
-from thoth.retire_steps import RetireStep, StepRefused, retire_step
+from thoth.models import Item, Relation, Status, table_of
+from thoth.renames import Rename, RenameRefusedError, rename
+from thoth.retire_steps import RetireStep, StepRefusedError, retire_step
 
 router = APIRouter(tags=["items"])
-EngineDep = Annotated[Engine, Depends(get_engine)]
 ItemIdPath = Annotated[UUID, Path(description="The item's id.", examples=["7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11"])]
 
 
 class ItemOut(BaseModel):
     """An item as it is now. `changed_*` say who made this version and why; earlier versions are its history."""
+
+    model_config = ConfigDict(frozen=True)
 
     id: UUID = Field(examples=["7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11"])
     type: str = Field(examples=["host"])
@@ -65,6 +67,7 @@ _RENAME_EXAMPLE = {
 @router.post(
     "/renames",
     operation_id="rename_item",
+    status_code=200,
     openapi_extra={
         "requestBody": {
             "description": "Which item, its new key, and why.",
@@ -79,7 +82,7 @@ def rename_item(request: Rename, caller: CallerDep, engine: EngineDep) -> ItemOu
         try:
             item = rename(session, request, caller)
             session.commit()
-        except RenameRefused as refused:
+        except RenameRefusedError as refused:
             raise HTTPException(refused.status, refused.detail) from refused
         except IntegrityError as e:  # someone took the key in the meantime
             raise HTTPException(409, f"{request.type} {request.new_key} already exists") from e
@@ -96,6 +99,7 @@ _RETIRE_STEP_EXAMPLE = {
 @router.post(
     "/retire-steps",
     operation_id="retire_step",
+    status_code=200,
     openapi_extra={
         "requestBody": {
             "description": "Which app, the step it reached, and why.",
@@ -105,14 +109,16 @@ _RETIRE_STEP_EXAMPLE = {
     responses={200: {"content": {"application/json": {"example": _ITEM_EXAMPLE}}}},
 )
 def post_retire_step(request: RetireStep, caller: CallerDep, engine: EngineDep) -> ItemOut:
-    """Shikigami's retire pass (D85): an app goes decommissioning when the pass starts and retained when its last step
-    is done; planned again when its request is restored (D106). Needs thoth.retire. A step already reached is answered
-    as it is."""
+    """Shikigami's retire pass (D85).
+
+    An app goes decommissioning when the pass starts and retained when its last step is done; planned again when its
+    request is restored (D106). Needs thoth.retire. A step already reached is answered as it is.
+    """
     with Session(engine) as session:
         try:
             item = retire_step(session, request, caller)
             session.commit()
-        except StepRefused as refused:
+        except StepRefusedError as refused:
             raise HTTPException(refused.status, refused.detail) from refused
         return ItemOut.model_validate(item, from_attributes=True)
 
@@ -140,6 +146,8 @@ _WEB_RESPONSE: dict[int | str, dict[str, Any]] = {200: {"content": {"application
 class ItemRef(BaseModel):
     """Enough to name an item."""
 
+    model_config = ConfigDict(frozen=True)
+
     id: UUID = Field(examples=["7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11"])
     type: str = Field(examples=["app"])
     key: str = Field(examples=["temporal"])
@@ -150,7 +158,7 @@ class ItemRef(BaseModel):
 class LinkOut(BaseModel):
     """A link: `from` depends on `to`."""
 
-    model_config = {"serialize_by_alias": True}
+    model_config = ConfigDict(frozen=True, serialize_by_alias=True)
 
     type: str = Field(examples=["uses"])
     from_: ItemRef = Field(alias="from")
@@ -160,15 +168,21 @@ class LinkOut(BaseModel):
 class Step(BaseModel):
     """An item the walk reached, how far from the start, and the link it arrived by."""
 
+    model_config = ConfigDict(frozen=True)
+
     item: ItemRef
     depth: int = Field(examples=[1])
     via: LinkOut
 
 
 class WebOut(BaseModel):
-    """The web around one item, built from one-hop links: what depends on it (`impact`) and what it needs
-    (`dependencies`). Each item once per side, at its shortest distance, with the link it arrived by; links that would
-    loop back are listed under `cycles` instead of followed."""
+    """The web around one item, built from one-hop links.
+
+    What depends on it (`impact`) and what it needs (`dependencies`). Each item once per side, at its shortest distance,
+    with the link it arrived by; links that would loop back are listed under `cycles` instead of followed.
+    """
+
+    model_config = ConfigDict(frozen=True)
 
     root: ItemRef
     depth: int = Field(examples=[10])
@@ -197,6 +211,7 @@ def _get(session: Session, item_id: UUID) -> Item:
 @router.get(
     "/items",
     operation_id="list_items",
+    status_code=200,
     responses={200: {"content": {"application/json": {"example": [_ITEM_EXAMPLE]}}}},
 )
 def list_items(
@@ -217,7 +232,7 @@ def list_items(
     offset: Annotated[int, Query(ge=0, description="Skip this many (for paging).")] = 0,
 ) -> list[ItemOut]:
     """Items, filtered, ordered by type then key. Keys contain slashes, so look one up with `?type=&key=`."""
-    rows = history.as_of(as_of) if as_of is not None else Item.__table__  # ty: ignore[unresolved-attribute]
+    rows = history.as_of(as_of) if as_of is not None else table_of(Item)
     query = sa.select(rows)
     for column, value in (("type", type), ("key", key), ("status", status), ("source", source)):
         if value is not None:
@@ -230,6 +245,7 @@ def list_items(
 @router.get(
     "/items/{item_id}",
     operation_id="get_item",
+    status_code=200,
     responses={200: {"content": {"application/json": {"example": _ITEM_EXAMPLE}}}},
 )
 def get_item(item_id: ItemIdPath, _: Reader, engine: EngineDep) -> ItemOut:
@@ -250,7 +266,7 @@ DepthQuery = Annotated[int, Query(ge=1, le=50, description="How many links away 
 SideQuery = Annotated[Side, Query(description="Both sides, or only one.")]
 
 
-@router.get("/items/{item_id}/web", operation_id="get_web", responses=_WEB_RESPONSE)
+@router.get("/items/{item_id}/web", operation_id="get_web", status_code=200, responses=_WEB_RESPONSE)
 def get_web(
     item_id: ItemIdPath, _: Reader, engine: EngineDep, depth: DepthQuery = 10, direction: SideQuery = Side.BOTH
 ) -> WebOut:
@@ -292,6 +308,7 @@ _HISTORY_EXAMPLE = [
 @router.get(
     "/items/{item_id}/history",
     operation_id="get_item_history",
+    status_code=200,
     responses={200: {"content": {"application/json": {"example": _HISTORY_EXAMPLE}}}},
 )
 def get_item_history(item_id: ItemIdPath, _: Reader, engine: EngineDep) -> list[VersionOut]:
