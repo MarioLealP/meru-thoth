@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Every check CI runs, runnable locally: lint, format, types, file size, the lockfile, pip-audit, tests, and the API
+# Every check CI runs, runnable locally: lint, format, types, file size, TLS checks, the lockfile, pip-audit, tests, and the API
 # contract.
 #   scripts/check.sh                  compare the API against origin/main
 #   THOTH_API_BASE=<ref> scripts/check.sh
@@ -22,6 +22,11 @@ step "no source file over 500 lines"
 too_long=$(find src -name '*.py' -exec awk 'FNR == 501 { print FILENAME }' {} +)
 if [[ -n $too_long ]]; then
   printf '%s\n' "$too_long"
+  exit 1
+fi
+step "TLS checks stay on"
+# ruff's rule for this only knows requests and httpx by name, not httpx2.
+if grep -rn 'verify=False' src; then
   exit 1
 fi
 step "uv.lock up to date"
