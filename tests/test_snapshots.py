@@ -5,9 +5,10 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 from httpx2 import Response
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine
 from sqlmodel import Session, select
 
+from tests.conftest import run_sql
 from thoth.db import write_as
 from thoth.models import Item, ItemHistory, Status
 
@@ -152,7 +153,7 @@ def test_seeing_it_never_undoes_a_verdict(client: TestClient, db: Engine) -> Non
     put(client, "host-scan", "clockmost-desktop", DESKTOP)
     with Session(db) as session:
         write_as(session, "shikigami", "retire request #1 finished", retire=True)
-        session.exec(text("update item set status = 'decommissioning'"))  # ty: ignore[no-matching-overload]
+        run_sql(session, "update item set status = 'decommissioning'")
         session.commit()
     put(client, "host-scan", "clockmost-desktop", DESKTOP)
     assert item(db, "host", "clockmost-desktop").status == Status.DECOMMISSIONING  # Anubis decides, not scanners

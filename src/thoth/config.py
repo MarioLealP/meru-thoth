@@ -1,9 +1,13 @@
+"""Thoth's settings, read from THOTH_* environment variables."""
+
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="THOTH_")
+    """What Thoth reads from its environment."""
+
+    model_config = SettingsConfigDict(env_prefix="THOTH_", frozen=True)
 
     # postgresql+psycopg://user:password@host:5432/thoth - a secret, it carries the password.
     database_url: SecretStr
@@ -19,4 +23,5 @@ class Settings(BaseSettings):
 
 
 def get_settings() -> Settings:
+    """Read the settings from the environment."""
     return Settings()  # filled from the environment

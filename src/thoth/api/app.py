@@ -1,15 +1,17 @@
-from importlib.metadata import version
-from typing import Annotated, Any
+"""The FastAPI app: the probes, the catalog route and the /v1 routers."""
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException
+from importlib.metadata import version
+from typing import Any
+
+from fastapi import APIRouter, FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
-from sqlalchemy import Engine, text
+from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlmodel import Session
 
 from thoth import catalog
 from thoth.api import problems
-from thoth.api.deps import Reader, get_engine
+from thoth.api.deps import EngineDep, Reader
 from thoth.api.items import router as items_router
 from thoth.api.snapshots import router as snapshots_router
 from thoth.catalog import check
@@ -43,21 +45,24 @@ v1 = APIRouter(prefix="/v1")
 class Health(BaseModel):
     """Thoth's state."""
 
+    model_config = ConfigDict(frozen=True)
+
     status: str = Field(default="ok", examples=["ok"])
 
 
-@app.get("/heartbeat", tags=["health"], operation_id="heartbeat")
+@app.get("/heartbeat", tags=["health"], operation_id="heartbeat", status_code=200)
 def heartbeat() -> Health:
     """Liveness: the process answers. Says nothing about the database."""
     return Health()
 
 
-@app.get("/ready", tags=["health"], operation_id="ready")
-def ready(engine: Annotated[Engine, Depends(get_engine)]) -> Health:
+@app.get("/ready", tags=["health"], operation_id="ready", status_code=200)
+def ready(engine: EngineDep) -> Health:
     """Readiness: the database answers, and (checked once per process) every stored row fits this version's catalog.
 
     Only then is the catalog copied into its tables - so a version whose catalog change left misfit rows never
-    goes live, and the old one keeps serving."""
+    goes live, and the old one keeps serving.
+    """
     try:
         with Session(engine) as session:
             session.connection().execute(text("select 1"))
@@ -76,6 +81,8 @@ def ready(engine: Annotated[Engine, Depends(get_engine)]) -> Health:
 class ItemTypeOut(BaseModel):
     """An item type."""
 
+    model_config = ConfigDict(frozen=True)
+
     description: str
     key_pattern: str = Field(examples=["^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"])
     schema_: dict[str, Any] = Field(alias="schema", examples=[{"properties": {"os": {"x-owners": ["host-scan"]}}}])
@@ -83,6 +90,8 @@ class ItemTypeOut(BaseModel):
 
 class RelationTypeOut(BaseModel):
     """A relation type: which item types may sit at each end (`*` = any)."""
+
+    model_config = ConfigDict(frozen=True)
 
     description: str
     from_: list[str] = Field(alias="from", examples=[["workload"]])
@@ -103,17 +112,20 @@ class Catalog(BaseModel):
     """Every item and relation type, by name."""
 
     model_config = ConfigDict(
-        json_schema_extra={"examples": [{"items": {"host": _HOST}, "relations": {"mounts": _MOUNTS}}]}
+        frozen=True, json_schema_extra={"examples": [{"items": {"host": _HOST}, "relations": {"mounts": _MOUNTS}}]}
     )
 
     items: dict[str, ItemTypeOut] = Field(examples=[{"host": _HOST}])
     relations: dict[str, RelationTypeOut] = Field(examples=[{"mounts": _MOUNTS}])
 
 
-@v1.get("/catalog", tags=["catalog"], operation_id="get_catalog", response_model_by_alias=True)
+@v1.get("/catalog", tags=["catalog"], operation_id="get_catalog", status_code=200, response_model_by_alias=True)
 def get_catalog(_: Reader) -> Catalog:
-    """Every item and relation type: description, key pattern (items), allowed ends (relations), and the JSON Schema
-    of its attributes - each field's `x-owners` lists the sources that may report it, first one wins."""
+    """Every item and relation type.
+
+    For each: description, key pattern (items), allowed ends (relations), and the JSON Schema of its attributes - each
+    field's `x-owners` lists the sources that may report it, first one wins.
+    """
     return Catalog.model_validate(catalog.export())
 
 

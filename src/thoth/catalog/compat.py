@@ -13,6 +13,7 @@ _NOT_SHAPE = {"description", "title", "examples", "default", "x-owners"}
 
 
 def breaking_changes(old: dict[str, Any], new: dict[str, Any]) -> list[str]:
+    """Every change from `old` to `new` that breaks existing data, one line each."""
     found = []
     for kind in ("items", "relations"):
         for name, before in old[kind].items():

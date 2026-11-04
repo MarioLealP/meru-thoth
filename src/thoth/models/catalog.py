@@ -1,5 +1,7 @@
-"""The catalog: which kinds of items and relations exist. Defined in code and loaded by migrations - git is
-its history, so these tables have no history tables of their own."""
+"""The catalog: which kinds of items and relations exist.
+
+Defined in code and loaded by migrations - git is its history, so these tables have no history tables of their own.
+"""
 
 from typing import Any
 
@@ -9,6 +11,8 @@ from sqlmodel import Field, SQLModel
 
 
 class ItemType(SQLModel, table=True):
+    """An item type, copied from the catalog at startup."""
+
     __tablename__ = "item_type"
 
     name: str = Field(primary_key=True, max_length=64)  # host, app, account, ...
@@ -18,6 +22,8 @@ class ItemType(SQLModel, table=True):
 
 
 class RelationType(SQLModel, table=True):
+    """A relation type, copied from the catalog at startup."""
+
     __tablename__ = "relation_type"
 
     name: str = Field(primary_key=True, max_length=64)  # mounts, owned-by, part-of, ...

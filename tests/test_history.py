@@ -3,10 +3,10 @@
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlmodel import Session, col, select
 
+from tests.conftest import run_sql
 from thoth.db import write_as
 from thoth.models import Item, ItemHistory, Relation, RelationType, Status
 
@@ -37,7 +37,7 @@ def test_write_without_actor_is_refused(session: Session) -> None:
 
 def test_write_as_needs_both() -> None:
     with pytest.raises(ValueError, match="actor and a reason"):
-        write_as(None, "shikigami", "")  # ty: ignore[invalid-argument-type]  # refused before it touches a session
+        write_as(Session(), "shikigami", "")  # refused before it touches a session
 
 
 def test_insert_is_stamped(session: Session) -> None:
@@ -97,8 +97,8 @@ def test_purge_can_delete(session: Session) -> None:
     add(session, host)
 
     write_as(session, "charon", "yearly purge")
-    session.exec(text("select set_config('thoth.purge', 'on', true)"))  # ty: ignore[no-matching-overload]
-    session.exec(text("delete from item_history"))  # ty: ignore[no-matching-overload]
+    run_sql(session, "select set_config('thoth.purge', 'on', true)")
+    run_sql(session, "delete from item_history")
     session.delete(host)
     session.commit()
     assert session.get(Item, host.id) is None
@@ -112,7 +112,7 @@ def test_history_is_append_only(session: Session) -> None:
 
     write_as(session, "test", "rewrite the past")
     with pytest.raises(DBAPIError, match="append-only"):
-        session.exec(text("update item_history set name = 'forged'"))  # ty: ignore[no-matching-overload]
+        run_sql(session, "update item_history set name = 'forged'")
 
 
 def test_type_and_key_are_unique(session: Session) -> None:
@@ -125,7 +125,7 @@ def test_unknown_status_is_refused(session: Session) -> None:
     add(session, new_host())
     write_as(session, "test", "bad status")
     with pytest.raises(IntegrityError):
-        session.exec(text("update item set status = 'exploded'"))  # ty: ignore[no-matching-overload]
+        run_sql(session, "update item set status = 'exploded'")
 
 
 def test_relations_are_tracked_too(session: Session) -> None:
@@ -136,7 +136,7 @@ def test_relations_are_tracked_too(session: Session) -> None:
     link.status = Status.MISSING
     add(session, link, reason="not seen in the last scan")
 
-    old = session.exec(text("select status, change_reason from relation_history")).one()  # ty: ignore[no-matching-overload]
+    old = run_sql(session, "select status, change_reason from relation_history").one()
     assert tuple(old) == ("active", "seen in restic config")
 
 
@@ -160,7 +160,7 @@ def test_only_anubis_retires(session: Session) -> None:
         add(session, host, reason="looks gone to me")
     session.rollback()
     write_as(session, "svc+anubis", "nightly verdict: gone", verdict=True)
-    session.exec(text("update item set status = 'retired'"))  # ty: ignore[no-matching-overload]
+    run_sql(session, "update item set status = 'retired'")
     session.commit()
     session.refresh(host)
     assert host.status == Status.RETIRED

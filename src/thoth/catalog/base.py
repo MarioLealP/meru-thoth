@@ -57,6 +57,7 @@ class Spec(BaseModel):
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:
+        """Refuse a concrete type without a docstring, or with a field nobody owns."""
         super().__pydantic_init_subclass__(**kwargs)
         if "type_name" not in cls.__dict__:
             return  # an abstract base
@@ -68,11 +69,14 @@ class Spec(BaseModel):
 
     @classmethod
     def owners(cls, field: str) -> list[str]:
+        """The sources that may report `field`, first one wins."""
         extra = cls.model_fields[field].json_schema_extra
-        return list(extra.get("x-owners", [])) if isinstance(extra, dict) else []  # ty: ignore[invalid-argument-type]
+        owners = extra.get("x-owners") if isinstance(extra, dict) else None
+        return [str(owner) for owner in owners] if isinstance(owners, list) else []
 
     @classmethod
     def description(cls) -> str:
+        """The class docstring on one line: the type's description."""
         return " ".join((cls.__doc__ or "").split())
 
     @classmethod
@@ -80,7 +84,8 @@ class Spec(BaseModel):
         """The model a source's slice is validated against: only the fields it owns.
 
         strict (a new snapshot, D51): every owned field must be present - `null` where empty - since a missing field
-        means the scanner broke. Not strict (stored slices): fields added to the catalog since may be absent."""
+        means the scanner broke. Not strict (stored slices): fields added to the catalog since may be absent.
+        """
         return _slice(cls, source, strict)
 
     @classmethod
@@ -109,13 +114,18 @@ def _slice(spec: type[Spec], source: str, strict: bool) -> type[BaseModel]:
 
 
 class ItemSpec(Spec):
+    """An item type: a Spec whose keys all follow one pattern."""
+
     key_pattern: ClassVar[str]  # every source must spell keys this way, so they meet on the same item
 
     @classmethod
     def key_ok(cls, key: str) -> bool:
+        """Whether `key` is spelled this type's way."""
         return re.fullmatch(cls.key_pattern, key) is not None
 
 
 class RelationSpec(Spec):
+    """A relation type: a Spec with the item types allowed at each end."""
+
     from_types: ClassVar[frozenset[str]]  # the dependent end; ANY_TYPE allows every item type
     to_types: ClassVar[frozenset[str]]

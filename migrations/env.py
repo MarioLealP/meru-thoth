@@ -5,10 +5,9 @@ from logging.config import fileConfig
 from alembic import context
 from alembic_utils.replaceable_entity import register_entities
 from sqlalchemy import Connection
-from sqlmodel import SQLModel
 
-import thoth.models  # noqa: F401  # registers the tables on SQLModel.metadata
 from thoth.db import make_engine
+from thoth.models import Item
 from thoth.sql import ENTITIES
 
 config = context.config
@@ -16,17 +15,18 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 register_entities(ENTITIES)
-target_metadata = SQLModel.metadata
+target_metadata = Item.metadata  # importing thoth.models registers every table on this one SQLModel.metadata
 
 
 def run_on(connection: Connection) -> None:
+    """Run the migrations over an open connection."""
     context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
     with context.begin_transaction():
         context.run_migrations()
 
 
 def run_migrations() -> None:
-    # A test or tool can hand over its own connection; otherwise connect with THOTH_DATABASE_URL.
+    """Migrate over the connection a test or tool handed in, else over a new one."""
     if (connection := config.attributes.get("connection")) is not None:
         run_on(connection)
         return

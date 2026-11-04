@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from datetime import datetime
 from typing import Any, Protocol
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 from sqlmodel import Session
 
@@ -19,6 +19,8 @@ MISSES_FOR_ANUBIS = 3
 class Summary(BaseModel):
     """What a snapshot changed."""
 
+    model_config = ConfigDict(frozen=True)
+
     created: int = Field(examples=[1])
     changed: int = Field(examples=[2])
     unchanged: int = Field(examples=[40])
@@ -27,13 +29,17 @@ class Summary(BaseModel):
     skipped: list[str] = Field(default_factory=list, examples=[[]])  # links whose other end doesn't exist yet
 
 
-class SnapshotRefused(Exception):
+class SnapshotRefusedError(Exception):
+    """A snapshot turned down whole, with every reason."""
+
     def __init__(self, errors: list[str]) -> None:
         super().__init__(f"snapshot refused: {len(errors)} problems")
         self.errors = errors
 
 
 class Observation(Protocol):
+    """What the snapshot rules use of an item or relation observation."""
+
     source: str
     attributes: dict[str, Any]
     last_seen: datetime
@@ -42,6 +48,8 @@ class Observation(Protocol):
 
 
 class Tracked(Protocol):
+    """A row with a lifecycle: an item or a relation."""
+
     status: Status
 
 
@@ -60,6 +68,7 @@ def begin(session: Session, actor: str, source: str, scope: str, kind: str) -> N
 
 
 def observed(obs: Observation, attributes: dict[str, Any], now: datetime, scan_id: str) -> None:
+    """Record that this scan saw the thing, with these attributes."""
     obs.attributes, obs.last_seen, obs.missed_scans, obs.last_scan = attributes, now, 0, scan_id
 
 
@@ -73,6 +82,7 @@ def missed(obs: Observation, scan_id: str) -> bool:
 
 
 def due_for_anubis(spec: type[Spec], obs: Observation, now: datetime) -> bool:
+    """Whether something unseen has been gone long enough for Anubis's list."""
     if spec.missing_after is not None:  # comes and goes: time unseen, not scans without it
         return now - obs.last_seen >= spec.missing_after
     return obs.missed_scans >= MISSES_FOR_ANUBIS

@@ -42,10 +42,10 @@ def test_refusals(client: TestClient) -> None:
     put(client, "host-scan", "clockmost-desktop", DESKTOP)
     put(client, "host-scan", "clockmost", {**DESKTOP, "key": "clockmost", "name": "clockmost"})
     cases = [
-        (dict(key="nope"), 404, "no host nope"),
-        (dict(new_key="Bad Key"), 422, "doesn't match"),
-        (dict(new_key="clockmost"), 409, "already exists"),
-        (dict(type="toaster"), 422, "unknown type"),
+        ({"key": "nope"}, 404, "no host nope"),
+        ({"new_key": "Bad Key"}, 422, "doesn't match"),
+        ({"new_key": "clockmost"}, 409, "already exists"),
+        ({"type": "toaster"}, 422, "unknown type"),
     ]
     for body, status, detail in cases:
         response = rename(client, **body)

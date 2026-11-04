@@ -29,8 +29,10 @@ def _host_scan(scope: str, type_name: str, key: str, attributes: dict[str, Any])
 
 
 def _k8s_scan(scope: str, type_name: str, key: str, attributes: dict[str, Any]) -> bool:
-    """One cluster: itself, what runs in it, the images it pulls (images are shared, keyed by registry), and the Meru
-    apps it sees running (D100) - keyed by bare name, so any app; CONFIRMS keeps it to apps already declared."""
+    """One cluster: itself, what runs in it, the images it pulls, and the Meru apps it sees running (D100).
+
+    Images are shared, keyed by registry. Apps are keyed by bare name, so any app; CONFIRMS keeps it to declared ones.
+    """
     match type_name:
         case "cluster":
             return key == scope
@@ -65,6 +67,7 @@ CONFIRMS: dict[str, frozenset[str]] = {
 
 
 def scope_problem(source: str, scope: str) -> str | None:
+    """Why `source` can't use this scope, or None if it can."""
     if not re.fullmatch(SCOPE_PATTERN, scope):
         return f"scope {scope!r} isn't a name like clockmost-desktop"
     if source not in RULES and scope != ALL:
@@ -73,6 +76,7 @@ def scope_problem(source: str, scope: str) -> str | None:
 
 
 def in_scope(source: str, scope: str, type_name: str, key: str, attributes: dict[str, Any]) -> bool:
+    """Whether `source` may report this item from this scope."""
     if rule := RULES.get(source):
         return rule(scope, type_name, key, attributes)
     types = TYPES.get(source)

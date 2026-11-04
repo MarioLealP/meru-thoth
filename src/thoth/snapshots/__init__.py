@@ -4,7 +4,7 @@ A scan run (a Temporal workflow, D54) sends every source's items first, then eve
 with the scan id - so links to another source's items find both ends, and resending a snapshot changes nothing.
 """
 
-from thoth.snapshots.common import SCAN_ID_PATTERN, SnapshotRefused, Summary, current_slices
+from thoth.snapshots.common import SCAN_ID_PATTERN, SnapshotRefusedError, Summary, current_slices
 from thoth.snapshots.items import ReportedItem, apply_items
 from thoth.snapshots.relations import ReportedEnd, ReportedRelation, apply_relations
 
@@ -13,7 +13,7 @@ __all__ = [
     "ReportedEnd",
     "ReportedItem",
     "ReportedRelation",
-    "SnapshotRefused",
+    "SnapshotRefusedError",
     "Summary",
     "apply_items",
     "apply_relations",

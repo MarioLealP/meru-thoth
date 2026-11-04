@@ -837,7 +837,7 @@
         "type": "string"
       },
       "Status": {
-        "description": "planned -> active <-> missing; (planned | active | missing) -> decommissioning -> retained -> retired;\nmissing -> retired (D53, D85); (decommissioning | retained) -> planned, a restore (D106).",
+        "description": "Where a thing is in its life.\n\nplanned -> active <-> missing; (planned | active | missing) -> decommissioning -> retained -> retired;\nmissing -> retired (D53, D85); (decommissioning | retained) -> planned, a restore (D106).",
         "enum": [
           "planned",
           "active",
@@ -1103,7 +1103,7 @@
         "type": "object"
       },
       "WebOut": {
-        "description": "The web around one item, built from one-hop links: what depends on it (`impact`) and what it needs\n(`dependencies`). Each item once per side, at its shortest distance, with the link it arrived by; links that would\nloop back are listed under `cycles` instead of followed.",
+        "description": "The web around one item, built from one-hop links.\n\nWhat depends on it (`impact`) and what it needs (`dependencies`). Each item once per side, at its shortest distance,\nwith the link it arrived by; links that would loop back are listed under `cycles` instead of followed.",
         "properties": {
           "cycles": {
             "examples": [
@@ -1331,7 +1331,7 @@
     },
     "/v1/catalog": {
       "get": {
-        "description": "Every item and relation type: description, key pattern (items), allowed ends (relations), and the JSON Schema\nof its attributes - each field's `x-owners` lists the sources that may report it, first one wins.",
+        "description": "Every item and relation type.\n\nFor each: description, key pattern (items), allowed ends (relations), and the JSON Schema of its attributes - each\nfield's `x-owners` lists the sources that may report it, first one wins.",
         "operationId": "get_catalog",
         "responses": {
           "200": {
@@ -1990,7 +1990,7 @@
     },
     "/v1/retire-steps": {
       "post": {
-        "description": "Shikigami's retire pass (D85): an app goes decommissioning when the pass starts and retained when its last step\nis done; planned again when its request is restored (D106). Needs thoth.retire. A step already reached is answered\nas it is.",
+        "description": "Shikigami's retire pass (D85).\n\nAn app goes decommissioning when the pass starts and retained when its last step is done; planned again when its\nrequest is restored (D106). Needs thoth.retire. A step already reached is answered as it is.",
         "operationId": "retire_step",
         "requestBody": {
           "content": {
@@ -2067,7 +2067,7 @@
     },
     "/v1/scans/{scan_id}/{source}/{scope}/items": {
       "put": {
-        "description": "Phase 1 of a scan: what `source` sees from `scope`. All or nothing - anything wrong refuses the whole snapshot\nand keeps the last good data (the refusal is logged, for Zabbix). Sending the same scan again changes nothing.",
+        "description": "Phase 1 of a scan: what `source` sees from `scope`.\n\nAll or nothing - anything wrong refuses the whole snapshot and keeps the last good data (the refusal is logged, for\nZabbix). Sending the same scan again changes nothing.",
         "operationId": "put_scan_items",
         "parameters": [
           {
@@ -2189,7 +2189,7 @@
     },
     "/v1/scans/{scan_id}/{source}/{scope}/relations": {
       "put": {
-        "description": "Phase 2 of a scan, once every source's items are in. A link whose other end doesn't exist yet is skipped and\nlisted (it heals on the next scan); anything else wrong refuses the whole snapshot.",
+        "description": "Phase 2 of a scan, once every source's items are in.\n\nA link whose other end doesn't exist yet is skipped and listed (it heals on the next scan); anything else wrong\nrefuses the whole snapshot.",
         "operationId": "put_scan_relations",
         "parameters": [
           {
