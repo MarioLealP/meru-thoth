@@ -938,6 +938,100 @@
         "title": "Summary",
         "type": "object"
       },
+      "UnseenOut": {
+        "description": "An item a source + scope stopped seeing long enough for Anubis to check it.",
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/ItemOut"
+          },
+          "last_seen": {
+            "examples": [
+              "2026-11-04T23:40:00Z"
+            ],
+            "format": "date-time",
+            "title": "Last Seen",
+            "type": "string"
+          },
+          "missed_scans": {
+            "examples": [
+              3
+            ],
+            "title": "Missed Scans",
+            "type": "integer"
+          },
+          "scope": {
+            "examples": [
+              "clockmost"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "source": {
+            "examples": [
+              "k8s-scan"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item",
+          "source",
+          "scope",
+          "missed_scans",
+          "last_seen"
+        ],
+        "title": "UnseenOut",
+        "type": "object"
+      },
+      "Verdict": {
+        "description": "Anubis's verdict on one item.",
+        "properties": {
+          "key": {
+            "examples": [
+              "clockmost/charon/deployment/charon"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "reason": {
+            "examples": [
+              "gone: get deployment charon/charon answered 404"
+            ],
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "description": "missing = gone but still declared; retired = gone for good",
+            "enum": [
+              "missing",
+              "retired"
+            ],
+            "examples": [
+              "retired"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "examples": [
+              "workload"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "key",
+          "status",
+          "reason"
+        ],
+        "title": "Verdict",
+        "type": "object"
+      },
       "VersionOut": {
         "description": "One version of an item: what it looked like from `valid_from` until `valid_to` (None: still current).",
         "properties": {
@@ -2369,6 +2463,151 @@
           "scans"
         ]
       }
+    },
+    "/v1/unseen": {
+      "get": {
+        "description": "What scanners stopped seeing: 3 scans in a row, or a coming-and-going type's `missing_after` (D53).",
+        "operationId": "list_unseen",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": [
+                  {
+                    "item": {
+                      "attributes": {},
+                      "change_reason": "snapshot from k8s-scan@clockmost",
+                      "changed_at": "2026-11-03T15:39:00Z",
+                      "changed_by": "heimdall",
+                      "first_seen": "2026-11-03T15:39:00Z",
+                      "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                      "key": "clockmost/charon/deployment/charon",
+                      "last_seen": "2026-11-03T15:59:00Z",
+                      "name": "charon",
+                      "source": "k8s-scan",
+                      "status": "active",
+                      "type": "workload"
+                    },
+                    "last_seen": "2026-11-03T15:59:00Z",
+                    "missed_scans": 3,
+                    "scope": "clockmost",
+                    "source": "k8s-scan"
+                  }
+                ],
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UnseenOut"
+                  },
+                  "title": "Response List Unseen",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "example": {
+                  "status": 404,
+                  "title": "Not Found",
+                  "type": "about:blank"
+                }
+              }
+            },
+            "description": "Any error, as problem details."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Unseen",
+        "tags": [
+          "verdicts"
+        ]
+      }
+    },
+    "/v1/verdicts": {
+      "post": {
+        "description": "Anubis's verdict (D53): missing or retired - retiring takes the item's links with it. Needs thoth.verdict.\n\nA verdict already given is answered as it is.",
+        "operationId": "give_verdict",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "key": "clockmost/charon/deployment/charon",
+                "reason": "gone: get deployment charon/charon answered 404",
+                "status": "retired",
+                "type": "workload"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/Verdict"
+              }
+            }
+          },
+          "description": "Which item, the verdict, and why.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "attributes": {},
+                  "change_reason": "snapshot from k8s-scan@clockmost",
+                  "changed_at": "2026-11-03T15:39:00Z",
+                  "changed_by": "heimdall",
+                  "first_seen": "2026-11-03T15:39:00Z",
+                  "id": "7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11",
+                  "key": "clockmost/charon/deployment/charon",
+                  "last_seen": "2026-11-03T15:59:00Z",
+                  "name": "charon",
+                  "source": "k8s-scan",
+                  "status": "retired",
+                  "type": "workload"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ItemOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "example": {
+                  "status": 404,
+                  "title": "Not Found",
+                  "type": "about:blank"
+                }
+              }
+            },
+            "description": "Any error, as problem details."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Post Verdict",
+        "tags": [
+          "verdicts"
+        ]
+      }
     }
   },
   "servers": [
@@ -2393,6 +2632,10 @@
     {
       "description": "Sources report what they see; Thoth works out what changed.",
       "name": "scans"
+    },
+    {
+      "description": "What scanners stopped seeing, and Anubis's verdicts on it.",
+      "name": "verdicts"
     }
   ]
 }

@@ -14,6 +14,7 @@ from thoth.api import problems
 from thoth.api.deps import EngineDep, Reader
 from thoth.api.items import router as items_router
 from thoth.api.snapshots import router as snapshots_router
+from thoth.api.verdicts import router as verdicts_router
 from thoth.catalog import check
 
 app = FastAPI(
@@ -31,6 +32,7 @@ app = FastAPI(
         {"name": "catalog", "description": "Which item and relation types exist, and what they hold."},
         {"name": "items", "description": "The inventory: items, their links and their history."},
         {"name": "scans", "description": "Sources report what they see; Thoth works out what changed."},
+        {"name": "verdicts", "description": "What scanners stopped seeing, and Anubis's verdicts on it."},
     ],
     responses={"default": problems.PROBLEM_RESPONSE},
 )
@@ -131,4 +133,5 @@ def get_catalog(_: Reader) -> Catalog:
 
 v1.include_router(items_router)
 v1.include_router(snapshots_router)
+v1.include_router(verdicts_router)
 app.include_router(v1)
