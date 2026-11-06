@@ -8,7 +8,7 @@ from sqlmodel import Session
 
 from thoth.api.deps import CallerDep, EngineDep, Reader
 from thoth.api.items import ItemOut
-from thoth.verdicts import Verdict, VerdictRefusedError, give, unseen
+from thoth.core.verdicts import Verdict, VerdictRefusedError, give, unseen
 
 router = APIRouter(tags=["verdicts"])
 

@@ -7,9 +7,9 @@ from sqlalchemy import Engine
 from sqlmodel import Session
 
 from tests.conftest import run_sql
-from tests.test_relations import link, rel
-from tests.test_snapshots import item, put
-from thoth.db import write_as
+from tests.snapshots.test_relations import link, rel
+from tests.snapshots.test_snapshots import item, put
+from thoth.db.session import write_as
 
 
 def app(name: str) -> dict[str, Any]:

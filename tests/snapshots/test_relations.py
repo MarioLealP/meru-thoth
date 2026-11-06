@@ -9,7 +9,7 @@ from httpx2 import Response
 from sqlalchemy import Engine
 from sqlmodel import Session, select
 
-from tests.test_snapshots import DESKTOP, account, put
+from tests.snapshots.test_snapshots import DESKTOP, account, put
 from thoth.catalog import Source
 from thoth.models import Relation
 from thoth.snapshots import ReportedItem, apply_items

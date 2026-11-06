@@ -15,9 +15,9 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session, col, or_, select
 
-from thoth.auth import VERDICT, Caller
 from thoth.catalog import ITEMS
-from thoth.db import write_as
+from thoth.core.auth import VERDICT, Caller
+from thoth.db.session import write_as
 from thoth.models import Item, ItemObservation, Relation, Status
 from thoth.snapshots.common import due_for_anubis
 

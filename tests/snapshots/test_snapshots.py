@@ -9,7 +9,7 @@ from sqlalchemy import Engine
 from sqlmodel import Session, select
 
 from tests.conftest import run_sql
-from thoth.db import write_as
+from thoth.db.session import write_as
 from thoth.models import Item, ItemHistory, Status
 
 DESKTOP = {"type": "host", "key": "clockmost-desktop", "name": "clockmost-desktop",

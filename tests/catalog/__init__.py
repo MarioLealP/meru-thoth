@@ -1,0 +1,1 @@
+"""Tests for thoth.catalog."""

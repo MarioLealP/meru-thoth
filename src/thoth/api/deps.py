@@ -10,9 +10,9 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import Engine
 
-from thoth.auth import Caller, UnauthenticatedError, Verifier
 from thoth.config import get_settings
-from thoth.db import make_engine
+from thoth.core.auth import Caller, UnauthenticatedError, Verifier
+from thoth.db.session import make_engine
 
 log = logging.getLogger(__name__)
 bearer = HTTPBearer(auto_error=False, description="An Authentik access token (client credentials).")

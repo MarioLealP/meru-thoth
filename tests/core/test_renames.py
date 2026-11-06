@@ -4,10 +4,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sqlmodel import Session, select
 
-from tests.test_relations import BENYLIN, MEMBER, WHEEL, link
-from tests.test_snapshots import DESKTOP, history, item, put
+from tests.snapshots.test_relations import BENYLIN, MEMBER, WHEEL, link
+from tests.snapshots.test_snapshots import DESKTOP, history, item, put
 from tests.tokens import bearer
-from thoth.auth import READ, report
+from thoth.core.auth import READ, report
 from thoth.models import Relation
 
 

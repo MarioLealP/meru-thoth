@@ -12,9 +12,9 @@ from sqlmodel import Session, col, select
 from thoth import snapshots
 from thoth.api.deps import CallerDep, EngineDep, Reader
 from thoth.api.problems import Problem, ProblemError
-from thoth.auth import Caller, report
 from thoth.catalog import Source
 from thoth.catalog.scopes import SCOPE_PATTERN
+from thoth.core.auth import Caller, report
 from thoth.models import SnapshotRun
 from thoth.snapshots import SCAN_ID_PATTERN, ReportedItem, ReportedRelation, Summary
 
