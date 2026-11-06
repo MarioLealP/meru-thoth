@@ -6,9 +6,9 @@ from alembic import context
 from alembic_utils.replaceable_entity import register_entities
 from sqlalchemy import Connection
 
-from thoth.db import make_engine
+from thoth.db import ENTITIES
+from thoth.db.session import make_engine
 from thoth.models import Item
-from thoth.sql import ENTITIES
 
 config = context.config
 if config.config_file_name is not None:

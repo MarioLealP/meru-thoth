@@ -1,6 +1,6 @@
 """Database access: the engine, and the one way to write - as an actor, with a reason.
 
-Every write transaction must say who is writing and why. The history trigger (thoth.sql.history) reads both from
+Every write transaction must say who is writing and why. The history trigger (thoth.db.history) reads both from
 transaction-local settings and refuses the write without them, so a change can't land unexplained.
 """
 

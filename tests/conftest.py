@@ -14,9 +14,9 @@ from sqlmodel import Session
 from tests.tokens import ALL_TEST_PERMISSIONS, KEYS, SETTINGS, mint
 from thoth.api import app
 from thoth.api.deps import get_engine, get_verifier
-from thoth.auth import Verifier
 from thoth.catalog import check
-from thoth.db import make_engine
+from thoth.core.auth import Verifier
+from thoth.db.session import make_engine
 
 
 def run_sql(session: Session, statement: str) -> CursorResult[Any]:

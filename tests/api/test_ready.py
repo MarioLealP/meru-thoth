@@ -5,7 +5,7 @@ from sqlalchemy import Engine, delete, func
 from sqlmodel import Session, select
 
 from thoth.catalog import ITEMS, RELATIONS
-from thoth.db import write_as
+from thoth.db.session import write_as
 from thoth.models import Item, ItemObservation, ItemType, RelationType
 
 

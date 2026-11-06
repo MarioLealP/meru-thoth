@@ -6,9 +6,9 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 
-from tests.test_snapshots import DESKTOP, item
+from tests.snapshots.test_snapshots import DESKTOP, item
 from tests.tokens import bearer, mint
-from thoth.auth import READ, report
+from thoth.core.auth import READ, report
 
 SCAN = "/v1/scans/s1/host-scan/clockmost-desktop/items"
 

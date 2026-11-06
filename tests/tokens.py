@@ -7,9 +7,9 @@ from typing import Any
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from thoth.auth import MANUAL, READ, report
 from thoth.catalog import Source
 from thoth.config import Settings
+from thoth.core.auth import MANUAL, READ, report
 
 ISSUER = "https://auth.test/application/o/thoth/"
 KID = "test-key"

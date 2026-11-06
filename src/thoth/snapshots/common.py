@@ -9,7 +9,7 @@ from sqlalchemy import text
 from sqlmodel import Session
 
 from thoth.catalog.base import Spec
-from thoth.db import write_as
+from thoth.db.session import write_as
 from thoth.models import Status
 
 SCAN_ID_PATTERN = r"^[A-Za-z0-9._-]{1,128}$"

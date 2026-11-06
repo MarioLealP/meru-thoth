@@ -7,7 +7,7 @@ from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlmodel import Session, col, select
 
 from tests.conftest import run_sql
-from thoth.db import write_as
+from thoth.db.session import write_as
 from thoth.models import Item, ItemHistory, Relation, RelationType, Status
 
 

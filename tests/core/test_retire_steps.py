@@ -10,10 +10,10 @@ from sqlalchemy.exc import DBAPIError
 from sqlmodel import Session
 
 from tests.conftest import run_sql
-from tests.test_snapshots import history, item, put
+from tests.snapshots.test_snapshots import history, item, put
 from tests.tokens import bearer
-from thoth.auth import READ, RETIRE, report
-from thoth.db import write_as
+from thoth.core.auth import READ, RETIRE, report
+from thoth.db.session import write_as
 from thoth.models import Status
 
 SHIKIGAMI = bearer(RETIRE, report("shikigami", "all"), name="shikigami")

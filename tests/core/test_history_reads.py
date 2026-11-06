@@ -7,9 +7,9 @@ from typing import Any
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from tests.test_snapshots import DESKTOP, item, put
+from tests.snapshots.test_snapshots import DESKTOP, item, put
 from tests.tokens import bearer
-from thoth.auth import MANUAL
+from thoth.core.auth import MANUAL
 
 
 def as_of(client: TestClient, at: datetime, **filters: Any) -> list[tuple[str, str]]:

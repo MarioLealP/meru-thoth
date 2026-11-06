@@ -3,7 +3,7 @@
 It owns nothing, so it can't change the schema or switch off a trigger; it has no DELETE (only Charon's purge
 deletes); and history is written only by the change-tracking function, which runs as the tables' owner. Migrations
 run as that owner. Columns come from the models, so a new column gets its table's rights through autogenerate; a new
-table gets none until it's listed here (tests/test_roles.py checks the whole matrix).
+table gets none until it's listed here (tests/db/test_roles.py checks the whole matrix).
 """
 
 from alembic_utils.pg_grant_table import PGGrantTable

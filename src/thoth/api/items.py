@@ -11,12 +11,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
-from thoth import history
 from thoth.api.deps import CallerDep, EngineDep, Reader
-from thoth.graph import Direction, walk
+from thoth.core import history
+from thoth.core.graph import Direction, walk
+from thoth.core.renames import Rename, RenameRefusedError, rename
+from thoth.core.retire_steps import RetireStep, StepRefusedError, retire_step
 from thoth.models import Item, Relation, Status, table_of
-from thoth.renames import Rename, RenameRefusedError, rename
-from thoth.retire_steps import RetireStep, StepRefusedError, retire_step
 
 router = APIRouter(tags=["items"])
 ItemIdPath = Annotated[UUID, Path(description="The item's id.", examples=["7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11"])]

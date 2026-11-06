@@ -20,7 +20,7 @@ Authentik, Gitea, hosts, the router) report what they actually see; Thoth merges
 
 The rules live in the database (Postgres triggers), so no code path can skip them:
 
-- every write names an **actor** and a **reason** (`thoth.db.write_as`), or the database refuses it;
+- every write names an **actor** and a **reason** (`thoth.db.session.write_as`), or the database refuses it;
 - every real change copies the previous version into `item_history` / `relation_history`, with when it was valid;
   a scan that only bumps `last_seen` is not a change;
 - history is append-only, and rows are never deleted - things are `retired`. Only the yearly purge removes rows that
@@ -60,7 +60,7 @@ scripts/test-db.sh                 # a throwaway Postgres 16 - prints its URL
 scripts/test-db.sh stop
 ```
 
-Changing the model: edit `src/thoth/models/` (tables) or `src/thoth/sql/` (functions and triggers), then
+Changing the model: edit `src/thoth/models/` (tables) or `src/thoth/db/` (functions and triggers), then
 
 ```sh
 export THOTH_DATABASE_URL=$(scripts/test-db.sh)

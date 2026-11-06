@@ -1,8 +1,8 @@
 """The change tracking: every write names who and why, every real change keeps the old version, nothing is deleted.
 
 It lives in the database, not the app, so no code path can skip it - not a buggy endpoint, not a script, not
-psql. The app passes who and why per transaction with `thoth.db.write_as`, which sets two settings these functions
-read: `thoth.actor` and `thoth.reason`. Deleting needs a third, `thoth.purge = on`, which only Charon's yearly
+psql. The app passes who and why per transaction with `thoth.db.session.write_as`, which sets two settings these
+functions read: `thoth.actor` and `thoth.reason`. Deleting needs a third, `thoth.purge = on`, which only Charon's yearly
 purge sets. Only a writer with the verdict flag (Anubis) may set status retired (D53, D56), and only one with the
 retire flag (Shikigami's retire pass) decommissioning or retained (D85), or take an app out of them again - a restore,
 D106 - unless it's Anubis retiring it. The running app's

@@ -10,11 +10,11 @@ from sqlalchemy.exc import DBAPIError
 from sqlmodel import Session
 
 from tests.conftest import run_sql
-from tests.test_relations import BENYLIN, MEMBER, WHEEL, link, relations
-from tests.test_snapshots import DESKTOP, account, history, item, put
+from tests.snapshots.test_relations import BENYLIN, MEMBER, WHEEL, link, relations
+from tests.snapshots.test_snapshots import DESKTOP, account, history, item, put
 from tests.tokens import bearer
-from thoth.auth import READ, RETIRE, VERDICT
-from thoth.db import write_as
+from thoth.core.auth import READ, RETIRE, VERDICT
+from thoth.db.session import write_as
 from thoth.models import Status
 
 ANUBIS = bearer(READ, VERDICT, name="anubis")

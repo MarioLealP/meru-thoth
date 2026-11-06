@@ -11,7 +11,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 from sqlmodel import Session, select
 
-from thoth.db import write_as
+from thoth.db.session import write_as
 from thoth.models import Item, ItemHistory
 
 APP = "thoth_app"

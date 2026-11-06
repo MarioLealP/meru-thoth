@@ -8,9 +8,9 @@ name still exists.
 from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session, select
 
-from thoth.auth import MANUAL, Caller
 from thoth.catalog import ITEMS
-from thoth.db import write_as
+from thoth.core.auth import MANUAL, Caller
+from thoth.db.session import write_as
 from thoth.models import Item, Status
 
 
