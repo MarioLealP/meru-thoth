@@ -46,3 +46,7 @@ resources:
     memory: 128Mi
   limits:
     memory: 384Mi
+
+# Crash reports (D125): this app's GlitchTip project, which Shikigami made (it predates the marker's own DSN line).
+glitchtip:
+  dsn: https://b5a029eb36a941d2966363d6b1bda76e@glitchtip.clockmost.com/10

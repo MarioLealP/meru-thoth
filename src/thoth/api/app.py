@@ -3,6 +3,7 @@
 from importlib.metadata import version
 from typing import Any
 
+import sentry_sdk
 from fastapi import APIRouter, FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy import text
@@ -16,6 +17,11 @@ from thoth.api.items import router as items_router
 from thoth.api.snapshots import router as snapshots_router
 from thoth.api.verdicts import router as verdicts_router
 from thoth.catalog import check
+
+# Crash reports to GlitchTip (D125): SENTRY_DSN comes from nuwa-app's glitchtip.dsn; unset, the SDK stays off.
+# No local variables or request bodies in a report - either can hold a secret.
+sentry_sdk.init(include_local_variables=False, max_request_body_size="never")
+
 
 app = FastAPI(
     title="Thoth",

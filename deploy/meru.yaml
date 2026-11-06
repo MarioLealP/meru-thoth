@@ -1,7 +1,7 @@
 # Makes this repo a Meru app: Meru/meru finds it and deploys it into namespace thoth - the app (deploy/values.yaml)
 # and, as its own Application, its database (deploy/database/).
 owner: mario
-chart: nuwa-app-0.4.0 # the nuwa-app release Thoth is tested with
+chart: nuwa-app-0.20.0 # the nuwa-app release Thoth is tested with
 build: true # Thoth's own code: also its build namespace + Sindri runner
 buildLabels:
   # the checks job (.gitea/workflows/): tests + contract checks - uv 0.13.6-python3.15-trixie (python, uv, git)
