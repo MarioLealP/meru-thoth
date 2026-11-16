@@ -4,9 +4,8 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
-from sqlmodel import Session
 
-from thoth.api.deps import CallerDep, EngineDep, Reader
+from thoth.api.deps import CallerDep, Reader, SessionDep
 from thoth.api.items import ItemOut
 from thoth.core.verdicts import Verdict, VerdictRefusedError, give, unseen
 
@@ -69,19 +68,18 @@ _VERDICT_EXAMPLE = {
         }
     },
 )
-def list_unseen(_: Reader, engine: EngineDep) -> list[UnseenOut]:
+async def list_unseen(_: Reader, session: SessionDep) -> list[UnseenOut]:
     """What scanners stopped seeing: 3 scans in a row, or a coming-and-going type's `missing_after` (D53)."""
-    with Session(engine) as session:
-        return [
-            UnseenOut(
-                item=ItemOut.model_validate(item, from_attributes=True),
-                source=obs.source,
-                scope=obs.scope,
-                missed_scans=obs.missed_scans,
-                last_seen=obs.last_seen,
-            )
-            for item, obs in unseen(session, datetime.now(UTC))
-        ]
+    return [
+        UnseenOut(
+            item=ItemOut.model_validate(item, from_attributes=True),
+            source=obs.source,
+            scope=obs.scope,
+            missed_scans=obs.missed_scans,
+            last_seen=obs.last_seen,
+        )
+        for item, obs in await unseen(session, datetime.now(UTC))
+    ]
 
 
 @router.post(
@@ -96,15 +94,14 @@ def list_unseen(_: Reader, engine: EngineDep) -> list[UnseenOut]:
     },
     responses={200: {"content": {"application/json": {"example": {**_ITEM, "status": "retired"}}}}},
 )
-def post_verdict(request: Verdict, caller: CallerDep, engine: EngineDep) -> ItemOut:
+async def post_verdict(request: Verdict, caller: CallerDep, session: SessionDep) -> ItemOut:
     """Anubis's verdict (D53): missing or retired - retiring takes the item's links with it. Needs thoth.verdict.
 
     A verdict already given is answered as it is.
     """
-    with Session(engine) as session:
-        try:
-            item = give(session, request, caller)
-            session.commit()
-        except VerdictRefusedError as refused:
-            raise HTTPException(refused.status, refused.detail) from refused
-        return ItemOut.model_validate(item, from_attributes=True)
+    try:
+        item = await give(session, request, caller)
+        await session.commit()
+    except VerdictRefusedError as refused:
+        raise HTTPException(refused.status, refused.detail) from refused
+    return ItemOut.model_validate(item, from_attributes=True)

@@ -11,7 +11,8 @@ from uuid import UUID
 import sqlalchemy as sa
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.dialects.postgresql import ARRAY, array
-from sqlmodel import Session, col, select
+from sqlmodel import col, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from thoth.models import Item, Relation, Status
 
@@ -43,7 +44,7 @@ class Walk(BaseModel):
     items: dict[UUID, Item]  # every item mentioned, for naming
 
 
-def walk(session: Session, root: UUID, direction: Direction, max_depth: int) -> Walk:
+async def walk(session: AsyncSession, root: UUID, direction: Direction, max_depth: int) -> Walk:
     """Walk the relations from `root` in `direction`, at most `max_depth` links away."""
     r = sa.table(Relation.__tablename__, sa.column("id"), sa.column("from_item"), sa.column("to_item"),
                  sa.column("status"))  # fmt: skip
@@ -71,7 +72,9 @@ def walk(session: Session, root: UUID, direction: Direction, max_depth: int) -> 
         .where(live, steps.c.depth < max_depth, sa.not_(steps.c.cycle))
     )
     steps = steps.union_all(following)
-    rows = session.connection().execute(sa.select(steps.c.item_id, steps.c.relation_id, steps.c.depth, steps.c.cycle))
+    rows = await (await session.connection()).execute(
+        sa.select(steps.c.item_id, steps.c.relation_id, steps.c.depth, steps.c.cycle)
+    )
 
     shortest: dict[UUID, tuple[int, UUID]] = {}
     cycle_ids: set[UUID] = set()
@@ -82,9 +85,9 @@ def walk(session: Session, root: UUID, direction: Direction, max_depth: int) -> 
             shortest[item_id] = (depth, relation_id)
 
     relation_ids = {rid for _, rid in shortest.values()} | cycle_ids
-    relations = {x.id: x for x in session.exec(select(Relation).where(col(Relation.id).in_(relation_ids)))}
+    relations = {x.id: x for x in await session.exec(select(Relation).where(col(Relation.id).in_(relation_ids)))}
     item_ids = {root} | {i for x in relations.values() for i in (x.from_item, x.to_item)}
-    items = {x.id: x for x in session.exec(select(Item).where(col(Item.id).in_(item_ids)))}
+    items = {x.id: x for x in await session.exec(select(Item).where(col(Item.id).in_(item_ids)))}
     ordered = sorted(shortest.items(), key=lambda kv: (kv[1][0], items[kv[0]].type, items[kv[0]].key))
     return Walk(
         steps=[Step(item_id=item_id, depth=depth, relation=relations[rid]) for item_id, (depth, rid) in ordered],

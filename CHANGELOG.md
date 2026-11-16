@@ -5,6 +5,11 @@ All notable changes to Thoth. Format: [Keep a Changelog](https://keepachangelog.
 
 ## [Unreleased]
 
+### Changed
+
+- Database access is async end to end (STANDARDS.md): async engine and session, async routes, one session per request
+  as a dependency, the item a path names as a dependency. No change to the API contract.
+
 ### Added
 
 - Status `stopped`: an app seen but off on purpose (scaled to 0, e.g. a game server between sessions). The cluster

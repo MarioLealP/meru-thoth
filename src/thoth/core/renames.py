@@ -6,7 +6,8 @@ name still exists.
 """
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlmodel import Session, select
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from thoth.catalog import ITEMS
 from thoth.core.auth import MANUAL, Caller
@@ -34,27 +35,27 @@ class RenameRefusedError(Exception):
         self.status, self.detail = status, detail
 
 
-def rename(session: Session, request: Rename, caller: Caller) -> Item:
+async def rename(session: AsyncSession, request: Rename, caller: Caller) -> Item:
     """Give an item a new key and flush it; the caller commits."""
     spec = ITEMS.get(request.type)
     if spec is None:
         raise RenameRefusedError(422, f"unknown type {request.type}")
     if not spec.key_ok(request.new_key):
         raise RenameRefusedError(422, f"{request.new_key} doesn't match {spec.key_pattern}")
-    item = session.exec(select(Item).where(Item.type == request.type, Item.key == request.key)).first()
+    item = (await session.exec(select(Item).where(Item.type == request.type, Item.key == request.key))).first()
     if item is None:
         raise RenameRefusedError(404, f"no {request.type} {request.key}")
     if not (caller.may(MANUAL) or caller.reports_as(item.source)):
         raise RenameRefusedError(403, f"needs {MANUAL}, or to report as {item.source} (which reported it first)")
     if item.status == Status.RETIRED:
         raise RenameRefusedError(409, f"{request.type} {request.key} is retired")
-    if session.exec(select(Item).where(Item.type == request.type, Item.key == request.new_key)).first():
+    if (await session.exec(select(Item).where(Item.type == request.type, Item.key == request.new_key))).first():
         raise RenameRefusedError(409, f"{request.type} {request.new_key} already exists")
 
-    write_as(session, caller.name, f"rename {request.key} -> {request.new_key}: {request.reason}")
+    await write_as(session, caller.name, f"rename {request.key} -> {request.new_key}: {request.reason}")
     item.key = request.new_key
     if request.new_name is not None:
         item.name = request.new_name
-    session.flush()
-    session.refresh(item)
+    await session.flush()
+    await session.refresh(item)
     return item

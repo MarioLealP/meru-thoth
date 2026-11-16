@@ -6,7 +6,7 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
-from sqlmodel import Session
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from thoth.catalog.base import Spec
 from thoth.db.session import write_as
@@ -61,10 +61,12 @@ def current_slices(observations: Iterable[Observation]) -> dict[str, dict[str, A
     return slices
 
 
-def begin(session: Session, actor: str, source: str, scope: str, kind: str) -> None:
+async def begin(session: AsyncSession, actor: str, source: str, scope: str, kind: str) -> None:
     """Who and why for the trigger; one snapshot per source + scope + kind at a time."""
-    write_as(session, actor, f"snapshot from {source}@{scope}")
-    session.connection().execute(text("select pg_advisory_xact_lock(hashtext(:k))"), {"k": f"{kind}:{source}@{scope}"})
+    await write_as(session, actor, f"snapshot from {source}@{scope}")
+    await (await session.connection()).execute(
+        text("select pg_advisory_xact_lock(hashtext(:k))"), {"k": f"{kind}:{source}@{scope}"}
+    )
 
 
 def observed(obs: Observation, attributes: dict[str, Any], now: datetime, scan_id: str) -> None:

@@ -18,7 +18,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import tuple_
-from sqlmodel import Session, col, select
+from sqlmodel import col, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from thoth.catalog import ITEMS, Source
 from thoth.catalog.scopes import CONFIRMS, in_scope, scope_problem
@@ -71,20 +72,26 @@ def problems(source: str, scope: str, items: list[ReportedItem]) -> list[str]:
     return errors
 
 
-def apply_items(
-    session: Session, actor: str, scan_id: str, source: Source, scope: str, items: list[ReportedItem], now: datetime
+async def apply_items(
+    session: AsyncSession,
+    actor: str,
+    scan_id: str,
+    source: Source,
+    scope: str,
+    items: list[ReportedItem],
+    now: datetime,
 ) -> Summary:
     """Apply one source's item snapshot in the session; the caller commits."""
     if errors := problems(source, scope, items):
         raise SnapshotRefusedError(errors)
-    existing = _existing(session, items)
+    existing = await _existing(session, items)
     _refuse_undeclared(source, items, existing)
-    begin(session, actor, source, scope, "items")
+    await begin(session, actor, source, scope, "items")
 
     declaring = source == Source.SHIKIGAMI  # declares, doesn't see (D40, D53)
     mine = {
         o.item_id: o
-        for o in session.exec(
+        for o in await session.exec(
             select(ItemObservation).where(ItemObservation.source == source, ItemObservation.scope == scope)
         )
     }
@@ -99,7 +106,7 @@ def apply_items(
         else:
             before[item.id] = _state(item)
             _seen_again(item, r, source, now, declaring)
-        session.flush()
+        await session.flush()
         obs = mine.get(item.id)
         if obs is None:
             obs = ItemObservation(item_id=item.id, source=source, scope=scope, first_seen=now, last_seen=now,
@@ -109,8 +116,8 @@ def apply_items(
         reported[item.id] = item
 
     gone = [o for item_id, o in mine.items() if item_id not in reported]
-    misses, for_anubis = _count_misses(session, gone, scan_id, now)
-    _merge_slices(session, reported)
+    misses, for_anubis = await _count_misses(session, gone, scan_id, now)
+    await _merge_slices(session, reported)
     changed = sum(1 for item_id, old in before.items() if old != _state(reported[item_id]))
     return Summary(
         created=created,
@@ -121,12 +128,13 @@ def apply_items(
     )
 
 
-def _existing(session: Session, items: list[ReportedItem]) -> dict[tuple[str, str], Item]:
+async def _existing(session: AsyncSession, items: list[ReportedItem]) -> dict[tuple[str, str], Item]:
     pairs = [(i.type, i.key) for i in items]
     if not pairs:
         return {}
     return {
-        (i.type, i.key): i for i in session.exec(select(Item).where(tuple_(col(Item.type), col(Item.key)).in_(pairs)))
+        (i.type, i.key): i
+        for i in await session.exec(select(Item).where(tuple_(col(Item.type), col(Item.key)).in_(pairs)))
     }
 
 
@@ -158,29 +166,31 @@ def _seen_again(item: Item, r: ReportedItem, source: Source, now: datetime, decl
         item.last_seen = now
 
 
-def _count_misses(session: Session, gone: list[ItemObservation], scan_id: str, now: datetime) -> tuple[int, list[str]]:
+async def _count_misses(
+    session: AsyncSession, gone: list[ItemObservation], scan_id: str, now: datetime
+) -> tuple[int, list[str]]:
     """Count a miss for each thing not in this scan; returns the misses and what's now due for Anubis."""
-    gone_items = {i.id: i for i in session.exec(select(Item).where(col(Item.id).in_([o.item_id for o in gone])))}
+    gone_items = {i.id: i for i in await session.exec(select(Item).where(col(Item.id).in_([o.item_id for o in gone])))}
     misses, for_anubis = 0, []
     for obs in gone:
         misses += missed(obs, scan_id)
         item = gone_items[obs.item_id]
         if due_for_anubis(ITEMS[item.type], obs, now):
             for_anubis.append(f"{item.type} {item.key}")
-    session.flush()
+    await session.flush()
     return misses, for_anubis
 
 
-def _merge_slices(session: Session, reported: dict[UUID, Item]) -> None:
+async def _merge_slices(session: AsyncSession, reported: dict[UUID, Item]) -> None:
     """Set each reported item's attributes from all its sources' slices."""
     all_obs: dict[UUID, list[ItemObservation]] = defaultdict(list)
-    for obs in session.exec(select(ItemObservation).where(col(ItemObservation.item_id).in_(list(reported)))):
+    for obs in await session.exec(select(ItemObservation).where(col(ItemObservation.item_id).in_(list(reported)))):
         all_obs[obs.item_id].append(obs)
     for item_id, item in reported.items():
         merged = ITEMS[item.type].merge(current_slices(all_obs[item_id]))
         if merged != item.attributes:
             item.attributes = merged
-    session.flush()
+    await session.flush()
 
 
 def _state(item: Item) -> tuple[str, str, dict[str, Any]]:

@@ -13,7 +13,8 @@ sets (except Anubis' retired). A step that's already done is answered as it is (
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlmodel import Session, select
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from thoth.core.auth import RETIRE, Caller
 from thoth.db.session import write_as
@@ -55,11 +56,11 @@ class StepRefusedError(Exception):
         self.status, self.detail = status, detail
 
 
-def retire_step(session: Session, step: RetireStep, caller: Caller) -> Item:
+async def retire_step(session: AsyncSession, step: RetireStep, caller: Caller) -> Item:
     """Move an app to the step's status and flush it; the caller commits."""
     if not caller.may(RETIRE):
         raise StepRefusedError(403, f"needs {RETIRE}")
-    item = session.exec(select(Item).where(Item.type == "app", Item.key == step.app)).first()
+    item = (await session.exec(select(Item).where(Item.type == "app", Item.key == step.app))).first()
     if item is None:
         raise StepRefusedError(404, f"no app {step.app}")
     wanted = Status(step.status)
@@ -68,8 +69,8 @@ def retire_step(session: Session, step: RetireStep, caller: Caller) -> Item:
     if item.status not in FROM[wanted]:
         raise StepRefusedError(409, f"app {step.app} is {item.status}: {wanted} comes after {sorted(FROM[wanted])}")
 
-    write_as(session, caller.name, f"{wanted}: {step.reason}", retire=True)
+    await write_as(session, caller.name, f"{wanted}: {step.reason}", retire=True)
     item.status = wanted
-    session.flush()
-    session.refresh(item)
+    await session.flush()
+    await session.refresh(item)
     return item

@@ -13,7 +13,8 @@ from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlmodel import Session, col, or_, select
+from sqlmodel import col, or_, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from thoth.catalog import ITEMS
 from thoth.core.auth import VERDICT, Caller
@@ -50,22 +51,23 @@ class VerdictRefusedError(Exception):
         self.status, self.detail = status, detail
 
 
-def unseen(session: Session, now: datetime) -> list[tuple[Item, ItemObservation]]:
+async def unseen(session: AsyncSession, now: datetime) -> list[tuple[Item, ItemObservation]]:
     """Every (item, observation) on Anubis's list, ordered by type, key, source, scope."""
-    rows = session.exec(
+    query = (
         select(Item, ItemObservation)
         .join(ItemObservation, col(ItemObservation.item_id) == col(Item.id))
         .where(col(Item.status).in_(QUEUED))
         .order_by(col(Item.type), col(Item.key), col(ItemObservation.source), col(ItemObservation.scope))
-    ).all()
+    )
+    rows = (await session.exec(query)).all()
     return [(item, obs) for item, obs in rows if obs.missed_scans > 0 and due_for_anubis(ITEMS[item.type], obs, now)]
 
 
-def give(session: Session, verdict: Verdict, caller: Caller) -> Item:
+async def give(session: AsyncSession, verdict: Verdict, caller: Caller) -> Item:
     """Give the verdict and flush it; the caller commits. Retiring an item retires its links too."""
     if not caller.may(VERDICT):
         raise VerdictRefusedError(403, f"needs {VERDICT}")
-    item = session.exec(select(Item).where(Item.type == verdict.type, Item.key == verdict.key)).first()
+    item = (await session.exec(select(Item).where(Item.type == verdict.type, Item.key == verdict.key))).first()
     if item is None:
         raise VerdictRefusedError(404, f"no {verdict.type} {verdict.key}")
     wanted = Status(verdict.status)
@@ -76,17 +78,15 @@ def give(session: Session, verdict: Verdict, caller: Caller) -> Item:
             409, f"{verdict.type} {verdict.key} is {item.status}: {wanted} only from {sorted(FROM[wanted])}"
         )
 
-    write_as(session, caller.name, f"{wanted}: {verdict.reason}", verdict=True)
+    await write_as(session, caller.name, f"{wanted}: {verdict.reason}", verdict=True)
     item.status = wanted
     if wanted == Status.RETIRED:
-        links = session.exec(
-            select(Relation).where(
-                or_(col(Relation.from_item) == item.id, col(Relation.to_item) == item.id),
-                col(Relation.status) != Status.RETIRED,
-            )
-        ).all()
-        for link in links:
+        links = select(Relation).where(
+            or_(col(Relation.from_item) == item.id, col(Relation.to_item) == item.id),
+            col(Relation.status) != Status.RETIRED,
+        )
+        for link in (await session.exec(links)).all():
             link.status = Status.RETIRED
-    session.flush()
-    session.refresh(item)
+    await session.flush()
+    await session.refresh(item)
     return item

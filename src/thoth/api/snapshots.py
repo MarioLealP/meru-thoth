@@ -5,12 +5,12 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Engine
 from sqlalchemy.dialects.postgresql import distinct_on
-from sqlmodel import Session, col, select
+from sqlmodel import col, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from thoth import snapshots
-from thoth.api.deps import CallerDep, EngineDep, Reader
+from thoth.api.deps import CallerDep, Reader, SessionDep
 from thoth.api.problems import Problem, ProblemError
 from thoth.catalog import Source
 from thoth.catalog.scopes import SCOPE_PATTERN
@@ -100,26 +100,25 @@ def _body(description: str, example: dict[str, Any]) -> dict[str, Any]:
     return {"requestBody": {"description": description, "content": {"application/json": {"example": example}}}}
 
 
-def _record(engine: Engine, run: dict[str, Any], apply: Any) -> Summary:
+async def _record(session: AsyncSession, run: dict[str, Any], apply: Any) -> Summary:
     """Apply a snapshot and log the run; a refusal is logged too, after rolling back, then answered as a problem."""
-    with Session(engine) as session:
-        try:
-            summary = apply(session)
-        except snapshots.SnapshotRefusedError as refused:
-            session.rollback()
-            errors = refused.errors
-            session.add(SnapshotRun(**run, accepted=False, summary={"errors": errors[:100]}))
-            session.commit()
-            raise ProblemError(
-                Problem(
-                    title="Snapshot refused",
-                    status=422,
-                    detail=f"{len(errors)} problems - nothing was applied",
-                    errors=[{"msg": e} for e in errors[:100]],
-                )
-            ) from refused
-        session.add(SnapshotRun(**run, accepted=True, summary=summary.model_dump()))
-        session.commit()
+    try:
+        summary = await apply(session)
+    except snapshots.SnapshotRefusedError as refused:
+        await session.rollback()
+        errors = refused.errors
+        session.add(SnapshotRun(**run, accepted=False, summary={"errors": errors[:100]}))
+        await session.commit()
+        raise ProblemError(
+            Problem(
+                title="Snapshot refused",
+                status=422,
+                detail=f"{len(errors)} problems - nothing was applied",
+                errors=[{"msg": e} for e in errors[:100]],
+            )
+        ) from refused
+    session.add(SnapshotRun(**run, accepted=True, summary=summary.model_dump()))
+    await session.commit()
     return summary
 
 
@@ -129,13 +128,13 @@ def _record(engine: Engine, run: dict[str, Any], apply: Any) -> Summary:
     status_code=200,
     openapi_extra=_body("Every item the source sees from this scope.", _ITEMS_EXAMPLE),
 )
-def put_scan_items(
+async def put_scan_items(
     scan_id: ScanPath,
     source: SourcePath,
     scope: ScopePath,
     snapshot: ItemSnapshot,
     caller: CallerDep,
-    engine: EngineDep,
+    session: SessionDep,
 ) -> Summary:
     """Phase 1 of a scan: what `source` sees from `scope`.
 
@@ -145,8 +144,8 @@ def put_scan_items(
     _may_report(caller, source, scope)
     now = datetime.now(UTC)
     run = {"scan_id": scan_id, "kind": "items", "source": source, "scope": scope, "at": now}
-    return _record(
-        engine, run, lambda s: snapshots.apply_items(s, caller.name, scan_id, source, scope, snapshot.items, now)
+    return await _record(
+        session, run, lambda s: snapshots.apply_items(s, caller.name, scan_id, source, scope, snapshot.items, now)
     )
 
 
@@ -156,13 +155,13 @@ def put_scan_items(
     status_code=200,
     openapi_extra=_body("Every link the source sees from this scope.", _RELATIONS_EXAMPLE),
 )
-def put_scan_relations(
+async def put_scan_relations(
     scan_id: ScanPath,
     source: SourcePath,
     scope: ScopePath,
     snapshot: RelationSnapshot,
     caller: CallerDep,
-    engine: EngineDep,
+    session: SessionDep,
 ) -> Summary:
     """Phase 2 of a scan, once every source's items are in.
 
@@ -172,8 +171,8 @@ def put_scan_relations(
     _may_report(caller, source, scope)
     now = datetime.now(UTC)
     run = {"scan_id": scan_id, "kind": "relations", "source": source, "scope": scope, "at": now}
-    return _record(
-        engine,
+    return await _record(
+        session,
         run,
         lambda s: snapshots.apply_relations(s, caller.name, scan_id, source, scope, snapshot.relations, now),
     )
@@ -185,14 +184,11 @@ def put_scan_relations(
     status_code=200,
     responses={200: {"content": {"application/json": {"example": [_RUN_EXAMPLE]}}}},
 )
-def list_snapshots(_: Reader, engine: EngineDep) -> list[SnapshotRunOut]:
+async def list_snapshots(_: Reader, session: SessionDep) -> list[SnapshotRunOut]:
     """The latest snapshot of every source + scope + kind - Zabbix watches this for refused or quiet sources."""
-    with Session(engine) as session:
-        latest = (
-            select(SnapshotRun)
-            .ext(distinct_on(col(SnapshotRun.source), col(SnapshotRun.scope), col(SnapshotRun.kind)))
-            .order_by(
-                col(SnapshotRun.source), col(SnapshotRun.scope), col(SnapshotRun.kind), col(SnapshotRun.at).desc()
-            )
-        )
-        return [SnapshotRunOut.model_validate(run, from_attributes=True) for run in session.exec(latest)]
+    latest = (
+        select(SnapshotRun)
+        .ext(distinct_on(col(SnapshotRun.source), col(SnapshotRun.scope), col(SnapshotRun.kind)))
+        .order_by(col(SnapshotRun.source), col(SnapshotRun.scope), col(SnapshotRun.kind), col(SnapshotRun.at).desc())
+    )
+    return [SnapshotRunOut.model_validate(run, from_attributes=True) for run in await session.exec(latest)]

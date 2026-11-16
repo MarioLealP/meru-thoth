@@ -13,7 +13,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import tuple_
-from sqlmodel import Session, col, select
+from sqlmodel import col, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from thoth.catalog import ANY_TYPE, ITEMS, RELATIONS, RelationSpec, Source
 from thoth.catalog.scopes import in_scope, scope_problem
@@ -95,8 +96,8 @@ def _end_problems(where: str, rel: ReportedRelation, spec: type[RelationSpec]) -
     return errors
 
 
-def apply_relations(
-    session: Session,
+async def apply_relations(
+    session: AsyncSession,
     actor: str,
     scan_id: str,
     source: Source,
@@ -107,14 +108,14 @@ def apply_relations(
     """Apply one source's relation snapshot in the session; the caller commits."""
     if errors := problems(source, scope, relations):
         raise SnapshotRefusedError(errors)
-    resolved, skipped = _resolve(session, source, scope, relations)
-    begin(session, actor, source, scope, "relations")
+    resolved, skipped = await _resolve(session, source, scope, relations)
+    await begin(session, actor, source, scope, "relations")
 
     declaring = source == Source.SHIKIGAMI
-    existing = _existing(session, resolved)
+    existing = await _existing(session, resolved)
     mine = {
         o.relation_id: o
-        for o in session.exec(
+        for o in await session.exec(
             select(RelationObservation).where(RelationObservation.source == source, RelationObservation.scope == scope)
         )
     }
@@ -133,7 +134,7 @@ def apply_relations(
             seen(row, declaring)
             if not declaring:
                 row.last_seen = now
-        session.flush()
+        await session.flush()
         obs = mine.get(row.id)
         if obs is None:
             obs = RelationObservation(relation_id=row.id, source=source, scope=scope, first_seen=now, last_seen=now,
@@ -143,8 +144,8 @@ def apply_relations(
         reported[row.id] = row
 
     gone = [o for rel_id, o in mine.items() if rel_id not in reported]
-    misses, for_anubis = _count_misses(session, gone, scan_id, now)
-    _merge_slices(session, reported)
+    misses, for_anubis = await _count_misses(session, gone, scan_id, now)
+    await _merge_slices(session, reported)
     changed = sum(1 for rel_id, old in before.items() if old != (reported[rel_id].status, reported[rel_id].attributes))
     return Summary(
         created=created,
@@ -156,14 +157,16 @@ def apply_relations(
     )
 
 
-def _resolve(
-    session: Session, source: Source, scope: str, relations: list[ReportedRelation]
+async def _resolve(
+    session: AsyncSession, source: Source, scope: str, relations: list[ReportedRelation]
 ) -> tuple[list[tuple[ReportedRelation, Item, Item]], list[str]]:
     """Find both ends of every link: links with both, and the ones skipped. A from end outside the scope refuses all."""
     ends = {(e.type, e.key) for r in relations for e in (r.from_, r.to)}
     items = {
         (i.type, i.key): i
-        for i in (session.exec(select(Item).where(tuple_(col(Item.type), col(Item.key)).in_(ends))) if ends else [])
+        for i in (
+            await session.exec(select(Item).where(tuple_(col(Item.type), col(Item.key)).in_(ends))) if ends else []
+        )
     }
     resolved, skipped, errors = [], [], []
     for n, rel in enumerate(relations):
@@ -180,40 +183,40 @@ def _resolve(
     return resolved, skipped
 
 
-def _existing(
-    session: Session, resolved: list[tuple[ReportedRelation, Item, Item]]
+async def _existing(
+    session: AsyncSession, resolved: list[tuple[ReportedRelation, Item, Item]]
 ) -> dict[tuple[str, UUID, UUID], Relation]:
     triples = [(rel.type, a.id, b.id) for rel, a, b in resolved]
     if not triples:
         return {}
-    rows = session.exec(
+    rows = await session.exec(
         select(Relation).where(tuple_(col(Relation.type), col(Relation.from_item), col(Relation.to_item)).in_(triples))
     )
     return {(r.type, r.from_item, r.to_item): r for r in rows}
 
 
-def _count_misses(
-    session: Session, gone: list[RelationObservation], scan_id: str, now: datetime
+async def _count_misses(
+    session: AsyncSession, gone: list[RelationObservation], scan_id: str, now: datetime
 ) -> tuple[int, list[str]]:
     """Count a miss for each link not in this scan; returns the misses and what's now due for Anubis."""
     gone_rows = {
-        r.id: r for r in session.exec(select(Relation).where(col(Relation.id).in_([o.relation_id for o in gone])))
+        r.id: r for r in await session.exec(select(Relation).where(col(Relation.id).in_([o.relation_id for o in gone])))
     }
-    names = _names(session, gone_rows.values())
+    names = await _names(session, gone_rows.values())
     misses, for_anubis = 0, []
     for obs in gone:
         misses += missed(obs, scan_id)
         row = gone_rows[obs.relation_id]
         if due_for_anubis(RELATIONS[row.type], obs, now):
             for_anubis.append(f"{names[row.from_item]} {row.type} {names[row.to_item]}")
-    session.flush()
+    await session.flush()
     return misses, for_anubis
 
 
-def _merge_slices(session: Session, reported: dict[UUID, Relation]) -> None:
+async def _merge_slices(session: AsyncSession, reported: dict[UUID, Relation]) -> None:
     """Set each reported link's attributes from all its sources' slices."""
     all_obs: dict[UUID, list[RelationObservation]] = defaultdict(list)
-    for obs in session.exec(
+    for obs in await session.exec(
         select(RelationObservation).where(col(RelationObservation.relation_id).in_(list(reported)))
     ):
         all_obs[obs.relation_id].append(obs)
@@ -221,9 +224,13 @@ def _merge_slices(session: Session, reported: dict[UUID, Relation]) -> None:
         merged = RELATIONS[row.type].merge(current_slices(all_obs[rel_id]))
         if merged != row.attributes:
             row.attributes = merged
-    session.flush()
+    await session.flush()
 
 
-def _names(session: Session, rows: Any) -> dict[UUID, str]:
+async def _names(session: AsyncSession, rows: Any) -> dict[UUID, str]:
     ids = {i for r in rows for i in (r.from_item, r.to_item)}
-    return {i.id: f"{i.type} {i.key}" for i in session.exec(select(Item).where(col(Item.id).in_(ids)))} if ids else {}
+    return (
+        {i.id: f"{i.type} {i.key}" for i in await session.exec(select(Item).where(col(Item.id).in_(ids)))}
+        if ids
+        else {}
+    )
