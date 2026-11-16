@@ -88,7 +88,13 @@ def due_for_anubis(spec: type[Spec], obs: Observation, now: datetime) -> bool:
     return obs.missed_scans >= MISSES_FOR_ANUBIS
 
 
-def seen(row: Tracked, declaring: bool) -> None:
-    """Being seen makes planned or missing things active; decommissioning/retired wait for Anubis (D53)."""
-    if not declaring and row.status in (Status.PLANNED, Status.MISSING):
-        row.status = Status.ACTIVE
+SEEN_FROM = (Status.PLANNED, Status.ACTIVE, Status.STOPPED, Status.MISSING)
+
+
+def seen(row: Tracked, declaring: bool, running: bool | None = None) -> None:
+    """Being seen makes a thing active - or stopped, when its source says it isn't running.
+
+    Decommissioning, retained and retired don't move: only the retire pass and Anubis change those (D53, D85).
+    """
+    if not declaring and row.status in SEEN_FROM:
+        row.status = Status.STOPPED if running is False else Status.ACTIVE

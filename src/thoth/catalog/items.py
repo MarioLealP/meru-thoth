@@ -105,6 +105,9 @@ class App(ItemSpec):
     key_pattern: ClassVar[str] = rf"^{_NAME}$"
 
     template: str | None = owned_by(Source.SHIKIGAMI, default=None)  # nuwa/<name> or a git URL
+    # false: the cluster scan sees the app scaled to 0 on purpose, so it is stopped, not active. Absent or null: the
+    # scan can't tell (a host binary), so seen means active.
+    running: bool | None = owned_by(Source.K8S, lenient=True, default=None)
 
 
 class Workload(ItemSpec):

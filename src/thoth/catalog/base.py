@@ -38,11 +38,18 @@ class Source(StrEnum):
 ANY_TYPE = "*"
 
 
-def owned_by(*sources: Source, **field: Any) -> Any:
-    """A catalog field, with the sources that may report it - first one wins."""
+def owned_by(*sources: Source, lenient: bool = False, **field: Any) -> Any:
+    """A catalog field, with the sources that may report it - first one wins.
+
+    lenient: a new snapshot may leave the field out, for a field added while its scanner still runs the version
+    without it (so the two can ship in any order). Drop it once every owner sends the field.
+    """
     if not sources:
         raise ValueError("a field needs at least one owner")
-    return Field(json_schema_extra={"x-owners": [s.value for s in sources]}, **field)
+    extra: dict[str, Any] = {"x-owners": [s.value for s in sources]}
+    if lenient:
+        extra["x-lenient"] = True
+    return Field(json_schema_extra=extra, **field)
 
 
 class Spec(BaseModel):
@@ -75,6 +82,12 @@ class Spec(BaseModel):
         return [str(owner) for owner in owners] if isinstance(owners, list) else []
 
     @classmethod
+    def lenient(cls, field: str) -> bool:
+        """Whether a new snapshot may leave `field` out (see owned_by)."""
+        extra = cls.model_fields[field].json_schema_extra
+        return isinstance(extra, dict) and extra.get("x-lenient") is True
+
+    @classmethod
     def description(cls) -> str:
         """The class docstring on one line: the type's description."""
         return " ".join((cls.__doc__ or "").split())
@@ -84,7 +97,8 @@ class Spec(BaseModel):
         """The model a source's slice is validated against: only the fields it owns.
 
         strict (a new snapshot, D51): every owned field must be present - `null` where empty - since a missing field
-        means the scanner broke. Not strict (stored slices): fields added to the catalog since may be absent.
+        means the scanner broke; a lenient field may still be left out. Not strict (stored slices): fields added to
+        the catalog since may be absent.
         """
         return _slice(cls, source, strict)
 
@@ -105,7 +119,7 @@ def _slice(spec: type[Spec], source: str, strict: bool) -> type[BaseModel]:
     fields: dict[str, Any] = {}
     for name, info in spec.model_fields.items():
         if source in spec.owners(name):
-            if strict:
+            if strict and not spec.lenient(name):
                 info = copy(info)
                 info.default, info.default_factory = PydanticUndefined, None
             fields[name] = (info.annotation, info)

@@ -19,12 +19,13 @@ def table_of(model: type[SQLModel]) -> sa.Table:
 class Status(StrEnum):
     """Where a thing is in its life.
 
-    planned -> active <-> missing; (planned | active | missing) -> decommissioning -> retained -> retired;
-    missing -> retired (D53, D85); (decommissioning | retained) -> planned, a restore (D106).
+    planned -> active <-> missing; active <-> stopped; (planned | active | stopped | missing) -> decommissioning ->
+    retained -> retired; missing -> retired (D53, D85); (decommissioning | retained) -> planned, a restore (D106).
     """
 
     PLANNED = "planned"  # declared by a request, not seen yet
     ACTIVE = "active"
+    STOPPED = "stopped"  # seen, and off on purpose: an app scaled to 0 (a game server between sessions)
     MISSING = "missing"  # Anubis found it gone, but a request still declares it
     DECOMMISSIONING = "decommissioning"  # Shikigami's retire pass is taking it down. Only that pass sets it.
     RETAINED = "retained"  # taken down and its trust revoked; its data kept until Charon purges. Only the pass sets it.

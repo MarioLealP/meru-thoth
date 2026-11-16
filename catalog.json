@@ -38,6 +38,22 @@
         "additionalProperties": false,
         "description": "A Meru app: the unit someone requests, owns and retires. Its parts point at it with part-of.",
         "properties": {
+          "running": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Running",
+            "x-lenient": true,
+            "x-owners": [
+              "k8s-scan"
+            ]
+          },
           "template": {
             "anyOf": [
               {

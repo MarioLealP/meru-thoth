@@ -837,10 +837,11 @@
         "type": "string"
       },
       "Status": {
-        "description": "Where a thing is in its life.\n\nplanned -> active <-> missing; (planned | active | missing) -> decommissioning -> retained -> retired;\nmissing -> retired (D53, D85); (decommissioning | retained) -> planned, a restore (D106).",
+        "description": "Where a thing is in its life.\n\nplanned -> active <-> missing; active <-> stopped; (planned | active | stopped | missing) -> decommissioning ->\nretained -> retired; missing -> retired (D53, D85); (decommissioning | retained) -> planned, a restore (D106).",
         "enum": [
           "planned",
           "active",
+          "stopped",
           "missing",
           "decommissioning",
           "retained",
