@@ -7,10 +7,10 @@ Items whose first version starts after T didn't exist yet.
 
 from datetime import datetime
 from typing import Any
-from uuid import UUID
 
 import sqlalchemy as sa
-from sqlmodel import Session, col, select
+from sqlmodel import col, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from thoth.models import Item, ItemHistory, table_of
 
@@ -18,16 +18,13 @@ _COLUMNS = ("id", "type", "key", "name", "status", "attributes", "source", "firs
             "changed_by", "change_reason")  # fmt: skip
 
 
-def versions(session: Session, item_id: UUID) -> list[dict[str, Any]]:
+async def versions(session: AsyncSession, current: Item) -> list[dict[str, Any]]:
     """Newest first; the current version has valid_to None."""
-    current = session.get(Item, item_id)
-    if current is None:
-        return []
     rows = [{**current.model_dump(include=set(_COLUMNS)), "valid_from": current.changed_at, "valid_to": None}]
-    older = select(ItemHistory).where(ItemHistory.id == item_id).order_by(col(ItemHistory.valid_to).desc())
+    older = select(ItemHistory).where(ItemHistory.id == current.id).order_by(col(ItemHistory.valid_to).desc())
     rows += [
         {**h.model_dump(include=set(_COLUMNS)), "valid_from": h.valid_from, "valid_to": h.valid_to}
-        for h in session.exec(older)
+        for h in (await session.exec(older))
     ]
     return rows
 

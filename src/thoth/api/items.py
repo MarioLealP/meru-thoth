@@ -6,12 +6,11 @@ from typing import Annotated, Any
 from uuid import UUID
 
 import sqlalchemy as sa
-from fastapi import APIRouter, HTTPException, Path, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session
 
-from thoth.api.deps import CallerDep, EngineDep, Reader
+from thoth.api.deps import CallerDep, ItemDep, Reader, SessionDep
 from thoth.core import history
 from thoth.core.graph import Direction, walk
 from thoth.core.renames import Rename, RenameRefusedError, rename
@@ -19,7 +18,6 @@ from thoth.core.retire_steps import RetireStep, StepRefusedError, retire_step
 from thoth.models import Item, Relation, Status, table_of
 
 router = APIRouter(tags=["items"])
-ItemIdPath = Annotated[UUID, Path(description="The item's id.", examples=["7d0c1f5e-0b7a-4c55-9a51-2f3c6f0f8a11"])]
 
 
 class ItemOut(BaseModel):
@@ -76,17 +74,16 @@ _RENAME_EXAMPLE = {
     },
     responses={200: {"content": {"application/json": {"example": _ITEM_EXAMPLE}}}},
 )
-def rename_item(request: Rename, caller: CallerDep, engine: EngineDep) -> ItemOut:
+async def rename_item(request: Rename, caller: CallerDep, session: SessionDep) -> ItemOut:
     """Give an item a new key: same item, same relations; the old key stays in its history."""
-    with Session(engine) as session:
-        try:
-            item = rename(session, request, caller)
-            session.commit()
-        except RenameRefusedError as refused:
-            raise HTTPException(refused.status, refused.detail) from refused
-        except IntegrityError as e:  # someone took the key in the meantime
-            raise HTTPException(409, f"{request.type} {request.new_key} already exists") from e
-        return ItemOut.model_validate(item, from_attributes=True)
+    try:
+        item = await rename(session, request, caller)
+        await session.commit()
+    except RenameRefusedError as refused:
+        raise HTTPException(refused.status, refused.detail) from refused
+    except IntegrityError as e:  # someone took the key in the meantime
+        raise HTTPException(409, f"{request.type} {request.new_key} already exists") from e
+    return ItemOut.model_validate(item, from_attributes=True)
 
 
 _RETIRE_STEP_EXAMPLE = {
@@ -108,19 +105,18 @@ _RETIRE_STEP_EXAMPLE = {
     },
     responses={200: {"content": {"application/json": {"example": _ITEM_EXAMPLE}}}},
 )
-def post_retire_step(request: RetireStep, caller: CallerDep, engine: EngineDep) -> ItemOut:
+async def post_retire_step(request: RetireStep, caller: CallerDep, session: SessionDep) -> ItemOut:
     """Shikigami's retire pass (D85).
 
     An app goes decommissioning when the pass starts and retained when its last step is done; planned again when its
     request is restored (D106). Needs thoth.retire. A step already reached is answered as it is.
     """
-    with Session(engine) as session:
-        try:
-            item = retire_step(session, request, caller)
-            session.commit()
-        except StepRefusedError as refused:
-            raise HTTPException(refused.status, refused.detail) from refused
-        return ItemOut.model_validate(item, from_attributes=True)
+    try:
+        item = await retire_step(session, request, caller)
+        await session.commit()
+    except StepRefusedError as refused:
+        raise HTTPException(refused.status, refused.detail) from refused
+    return ItemOut.model_validate(item, from_attributes=True)
 
 
 def _ref_example(key: str, n: int) -> dict[str, Any]:
@@ -201,22 +197,15 @@ def _link(relation: Relation, items: dict[UUID, Item]) -> LinkOut:
     )
 
 
-def _get(session: Session, item_id: UUID) -> Item:
-    item = session.get(Item, item_id)
-    if item is None:
-        raise HTTPException(404, f"no item {item_id}")
-    return item
-
-
 @router.get(
     "/items",
     operation_id="list_items",
     status_code=200,
     responses={200: {"content": {"application/json": {"example": [_ITEM_EXAMPLE]}}}},
 )
-def list_items(
+async def list_items(
     _: Reader,
-    engine: EngineDep,
+    session: SessionDep,
     type: Annotated[str | None, Query(description="Only this item type.", examples=["host"])] = None,
     key: Annotated[str | None, Query(description="Only this exact key.", examples=["clockmost"])] = None,
     status: Annotated[Status | None, Query(description="Only this status.", examples=["active"])] = None,
@@ -238,20 +227,19 @@ def list_items(
         if value is not None:
             query = query.where(rows.c[column] == value)
     query = query.order_by(rows.c.type, rows.c.key).limit(limit).offset(offset)
-    with Session(engine) as session:
-        return [ItemOut.model_validate(dict(row._mapping)) for row in session.connection().execute(query)]
+    result = await (await session.connection()).execute(query)
+    return [ItemOut.model_validate(dict(row._mapping)) for row in result]
 
 
 @router.get(
-    "/items/{item_id}",
+    "/items/{item_id}",  # ruff: ignore[fast-api-unused-path-parameter] - the ItemDep dependency takes the path parameter
     operation_id="get_item",
     status_code=200,
     responses={200: {"content": {"application/json": {"example": _ITEM_EXAMPLE}}}},
 )
-def get_item(item_id: ItemIdPath, _: Reader, engine: EngineDep) -> ItemOut:
+async def get_item(_: Reader, item: ItemDep) -> ItemOut:
     """One item as it is now."""
-    with Session(engine) as session:
-        return ItemOut.model_validate(_get(session, item_id), from_attributes=True)
+    return ItemOut.model_validate(item, from_attributes=True)
 
 
 class Side(StrEnum):
@@ -266,28 +254,31 @@ DepthQuery = Annotated[int, Query(ge=1, le=50, description="How many links away 
 SideQuery = Annotated[Side, Query(description="Both sides, or only one.")]
 
 
-@router.get("/items/{item_id}/web", operation_id="get_web", status_code=200, responses=_WEB_RESPONSE)
-def get_web(
-    item_id: ItemIdPath, _: Reader, engine: EngineDep, depth: DepthQuery = 10, direction: SideQuery = Side.BOTH
+@router.get(
+    "/items/{item_id}/web",  # ruff: ignore[fast-api-unused-path-parameter] - the ItemDep dependency takes the path parameter
+    operation_id="get_web",
+    status_code=200,
+    responses=_WEB_RESPONSE,
+)
+async def get_web(
+    _: Reader, root: ItemDep, session: SessionDep, depth: DepthQuery = 10, direction: SideQuery = Side.BOTH
 ) -> WebOut:
     """What depends on this item (what breaks if it goes) and what it needs to work."""
-    with Session(engine) as session:
-        root = _get(session, item_id)
-        sides = {d: walk(session, item_id, d, depth) for d in Direction if direction in (Side.BOTH, d.value)}
-        items = {root.id: root} | {k: v for w in sides.values() for k, v in w.items.items()}
-        cycles = {c.id: c for w in sides.values() for c in w.cycles}  # a loop shows up on both sides: once
+    sides = {d: await walk(session, root.id, d, depth) for d in Direction if direction in (Side.BOTH, d.value)}
+    items = {root.id: root} | {k: v for w in sides.values() for k, v in w.items.items()}
+    cycles = {c.id: c for w in sides.values() for c in w.cycles}  # a loop shows up on both sides: once
 
-        def steps(d: Direction) -> list[Step]:
-            found = sides[d].steps if d in sides else []
-            return [Step(item=_ref(items[s.item_id]), depth=s.depth, via=_link(s.relation, items)) for s in found]
+    def steps(d: Direction) -> list[Step]:
+        found = sides[d].steps if d in sides else []
+        return [Step(item=_ref(items[s.item_id]), depth=s.depth, via=_link(s.relation, items)) for s in found]
 
-        return WebOut(
-            root=_ref(root),
-            depth=depth,
-            impact=steps(Direction.IMPACT),
-            dependencies=steps(Direction.DEPENDENCIES),
-            cycles=[_link(c, items) for c in sorted(cycles.values(), key=lambda c: (c.type, str(c.id)))],
-        )
+    return WebOut(
+        root=_ref(root),
+        depth=depth,
+        impact=steps(Direction.IMPACT),
+        dependencies=steps(Direction.DEPENDENCIES),
+        cycles=[_link(c, items) for c in sorted(cycles.values(), key=lambda c: (c.type, str(c.id)))],
+    )
 
 
 class VersionOut(ItemOut):
@@ -306,13 +297,11 @@ _HISTORY_EXAMPLE = [
 
 
 @router.get(
-    "/items/{item_id}/history",
+    "/items/{item_id}/history",  # ruff: ignore[fast-api-unused-path-parameter] - the ItemDep dependency takes the path parameter
     operation_id="get_item_history",
     status_code=200,
     responses={200: {"content": {"application/json": {"example": _HISTORY_EXAMPLE}}}},
 )
-def get_item_history(item_id: ItemIdPath, _: Reader, engine: EngineDep) -> list[VersionOut]:
+async def get_item_history(_: Reader, item: ItemDep, session: SessionDep) -> list[VersionOut]:
     """Every version of the item, newest first, each with who made it and why."""
-    with Session(engine) as session:
-        _get(session, item_id)
-        return [VersionOut.model_validate(v) for v in history.versions(session, item_id)]
+    return [VersionOut.model_validate(v) for v in await history.versions(session, item)]

@@ -1,5 +1,6 @@
 """Alembic runs from here: our tables (SQLModel metadata) and database-side logic (alembic_utils entities)."""
 
+import asyncio
 from logging.config import fileConfig
 
 from alembic import context
@@ -25,13 +26,20 @@ def run_on(connection: Connection) -> None:
         context.run_migrations()
 
 
+async def run_on_new_connection() -> None:
+    """Migrate over a connection of our own (the async engine, as the app uses)."""
+    engine = make_engine()
+    async with engine.connect() as connection:
+        await connection.run_sync(run_on)
+    await engine.dispose()
+
+
 def run_migrations() -> None:
-    """Migrate over the connection a test or tool handed in, else over a new one."""
+    """Migrate over the sync connection a test or tool handed in, else over a new one."""
     if (connection := config.attributes.get("connection")) is not None:
         run_on(connection)
         return
-    with make_engine().connect() as connection:
-        run_on(connection)
+    asyncio.run(run_on_new_connection())
 
 
 if context.is_offline_mode():

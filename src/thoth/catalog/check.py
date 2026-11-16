@@ -11,7 +11,8 @@ from typing import Any
 
 from pydantic import ValidationError
 from sqlalchemy.dialects.postgresql import insert
-from sqlmodel import Session, select
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from thoth.catalog import ANY_TYPE, ITEMS, RELATIONS
 from thoth.catalog.base import Spec
@@ -19,20 +20,20 @@ from thoth.models import Item, ItemObservation, ItemType, Relation, RelationObse
 from thoth.snapshots import current_slices
 
 
-def problems(session: Session) -> list[str]:
+async def problems(session: AsyncSession) -> list[str]:
     """Everything stored that doesn't fit the catalog in this code, one line each."""
-    items = {item.id: item for item in session.exec(select(Item))}
+    items = {item.id: item for item in await session.exec(select(Item))}
     item_observations: dict[Any, list[ItemObservation]] = defaultdict(list)
-    for obs in session.exec(select(ItemObservation)):
+    for obs in await session.exec(select(ItemObservation)):
         item_observations[obs.item_id].append(obs)
     rel_observations: dict[Any, list[RelationObservation]] = defaultdict(list)
-    for obs in session.exec(select(RelationObservation)):
+    for obs in await session.exec(select(RelationObservation)):
         rel_observations[obs.relation_id].append(obs)
 
     found = []
     for item in items.values():
         found += _item_problems(item, item_observations[item.id])
-    for rel in session.exec(select(Relation)):
+    for rel in await session.exec(select(Relation)):
         found += _relation_problems(rel, items[rel.from_item], items[rel.to_item], rel_observations[rel.id])
     return found
 
@@ -73,16 +74,16 @@ def _slice_problems(
     return found
 
 
-def sync(session: Session) -> None:
+async def sync(session: AsyncSession) -> None:
     """Upsert the catalog into item_type / relation_type (types gone from code stay until nothing uses them)."""
     for name, spec in ITEMS.items():
         row = {"name": name, "description": spec.description(), "key_pattern": spec.key_pattern,
                "attribute_schema": spec.model_json_schema()}  # fmt: skip
-        session.exec(insert(ItemType).values(row).on_conflict_do_update(index_elements=["name"], set_=row))
+        await session.exec(insert(ItemType).values(row).on_conflict_do_update(index_elements=["name"], set_=row))
     for name, spec in RELATIONS.items():
         row = {"name": name, "description": spec.description(), "from_types": sorted(spec.from_types),
                "to_types": sorted(spec.to_types), "attribute_schema": spec.model_json_schema()}  # fmt: skip
-        session.exec(insert(RelationType).values(row).on_conflict_do_update(index_elements=["name"], set_=row))
+        await session.exec(insert(RelationType).values(row).on_conflict_do_update(index_elements=["name"], set_=row))
 
 
 def _invalid(model: Any, data: dict[str, Any]) -> list[str]:

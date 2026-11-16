@@ -3,13 +3,15 @@
 Each test switches to the role for one transaction (SET LOCAL ROLE), as the app's own login would be.
 """
 
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import Engine, text
+from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
-from sqlmodel import Session, select
+from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from thoth.db.session import write_as
 from thoth.models import Item, ItemHistory
@@ -36,10 +38,10 @@ EXPECTED = {
 
 
 @pytest.fixture
-def as_app(db: Engine) -> Iterator[Session]:
+async def as_app(db: AsyncEngine) -> AsyncIterator[AsyncSession]:
     """A session whose transaction runs as thoth_app."""
-    with Session(db, expire_on_commit=False) as session:
-        session.connection().execute(text(f"SET LOCAL ROLE {APP}"))
+    async with AsyncSession(db, expire_on_commit=False) as session:
+        await (await session.connection()).execute(text(f"SET LOCAL ROLE {APP}"))
         yield session
 
 
@@ -67,9 +69,9 @@ COVERAGE = text("""
 COLUMN_LEVEL = ("SELECT", "INSERT", "UPDATE", "REFERENCES")
 
 
-def test_grants_match(session: Session) -> None:
+async def test_grants_match(session: AsyncSession) -> None:
     granted: dict[str, set[str]] = {}
-    for table, privilege, whole, every, some in session.connection().execute(
+    for table, privilege, whole, every, some in await (await session.connection()).execute(
         COVERAGE, {"role": APP, "privileges": list(PRIVILEGES), "column_level": list(COLUMN_LEVEL)}
     ):
         rights = granted.setdefault(table, set())
@@ -80,52 +82,51 @@ def test_grants_match(session: Session) -> None:
     assert granted == EXPECTED
 
 
-def test_app_role_is_plain(session: Session) -> None:
+async def test_app_role_is_plain(session: AsyncSession) -> None:
+    connection = await session.connection()
     role = (
-        session.connection()
-        .execute(
+        await connection.execute(
             text("SELECT rolsuper, rolcreaterole, rolcreatedb, rolbypassrls FROM pg_roles WHERE rolname = :r"),
             {"r": APP},
         )
-        .one()
-    )
+    ).one()
     assert tuple(role) == (False, False, False, False)
     owned = (
-        session.connection()
-        .execute(
+        await connection.execute(
             text("SELECT count(*) FROM pg_class c JOIN pg_roles r ON r.oid = c.relowner WHERE r.rolname = :r"),
             {"r": APP},
         )
-        .scalar_one()
-    )
+    ).scalar_one()
     assert owned == 0
-    may_create = session.connection().execute(text("SELECT has_schema_privilege(:r, 'public', 'CREATE')"), {"r": APP})
+    may_create = await (await session.connection()).execute(
+        text("SELECT has_schema_privilege(:r, 'public', 'CREATE')"), {"r": APP}
+    )
     assert may_create.scalar_one() is False
 
 
-def test_app_writes_and_history_still_records(db: Engine, as_app: Session) -> None:
+async def test_app_writes_and_history_still_records(db: AsyncEngine, as_app: AsyncSession) -> None:
     item = host()
-    write_as(as_app, "test", "first scan")
+    await write_as(as_app, "test", "first scan")
     as_app.add(item)
-    as_app.commit()
-    as_app.connection().execute(text(f"SET LOCAL ROLE {APP}"))
-    write_as(as_app, "test", "renamed")
+    await as_app.commit()
+    await (await as_app.connection()).execute(text(f"SET LOCAL ROLE {APP}"))
+    await write_as(as_app, "test", "renamed")
     item.name = "clockmost-renamed"
     as_app.add(item)
-    as_app.commit()
-    with Session(db) as session:
-        versions = session.exec(select(ItemHistory).where(ItemHistory.id == item.id)).all()
+    await as_app.commit()
+    async with AsyncSession(db) as session:
+        versions = (await session.exec(select(ItemHistory).where(ItemHistory.id == item.id))).all()
     assert [v.name for v in versions] == ["clockmost"]  # the trigger wrote it, as its owner
 
 
-def test_app_cannot_write_history(as_app: Session) -> None:
+async def test_app_cannot_write_history(as_app: AsyncSession) -> None:
     with pytest.raises(DBAPIError, match="permission denied for table item_history"):
-        as_app.connection().execute(text("INSERT INTO item_history DEFAULT VALUES"))
+        await (await as_app.connection()).execute(text("INSERT INTO item_history DEFAULT VALUES"))
 
 
-def test_app_cannot_delete(as_app: Session) -> None:
+async def test_app_cannot_delete(as_app: AsyncSession) -> None:
     with pytest.raises(DBAPIError, match="permission denied for table item"):
-        as_app.connection().execute(text("DELETE FROM item"))
+        await (await as_app.connection()).execute(text("DELETE FROM item"))
 
 
 @pytest.mark.parametrize(
@@ -137,6 +138,6 @@ def test_app_cannot_delete(as_app: Session) -> None:
         "CREATE TABLE sneaky (id int)",
     ],
 )
-def test_app_cannot_change_schema(as_app: Session, statement: str) -> None:
+async def test_app_cannot_change_schema(as_app: AsyncSession, statement: str) -> None:
     with pytest.raises(DBAPIError, match=r"must be owner|permission denied"):
-        as_app.connection().execute(text(statement))
+        await (await as_app.connection()).execute(text(statement))

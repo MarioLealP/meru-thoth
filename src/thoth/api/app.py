@@ -8,11 +8,10 @@ from fastapi import APIRouter, FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
-from sqlmodel import Session
 
 from thoth import catalog
 from thoth.api import problems
-from thoth.api.deps import EngineDep, Reader
+from thoth.api.deps import Reader, SessionDep
 from thoth.api.items import router as items_router
 from thoth.api.snapshots import router as snapshots_router
 from thoth.api.verdicts import router as verdicts_router
@@ -59,28 +58,27 @@ class Health(BaseModel):
 
 
 @app.get("/heartbeat", tags=["health"], operation_id="heartbeat", status_code=200)
-def heartbeat() -> Health:
+async def heartbeat() -> Health:
     """Liveness: the process answers. Says nothing about the database."""
     return Health()
 
 
 @app.get("/ready", tags=["health"], operation_id="ready", status_code=200)
-def ready(engine: EngineDep) -> Health:
+async def ready(session: SessionDep) -> Health:
     """Readiness: the database answers, and (checked once per process) every stored row fits this version's catalog.
 
     Only then is the catalog copied into its tables - so a version whose catalog change left misfit rows never
     goes live, and the old one keeps serving.
     """
     try:
-        with Session(engine) as session:
-            session.connection().execute(text("select 1"))
-            if not app.state.catalog_checked:
-                if found := check.problems(session):
-                    shown = "; ".join(found[:20]) + (f"; and {len(found) - 20} more" if len(found) > 20 else "")
-                    raise HTTPException(503, f"{len(found)} stored rows don't fit the catalog: {shown}")
-                check.sync(session)
-                session.commit()
-                app.state.catalog_checked = True
+        await (await session.connection()).execute(text("select 1"))
+        if not app.state.catalog_checked:
+            if found := await check.problems(session):
+                shown = "; ".join(found[:20]) + (f"; and {len(found) - 20} more" if len(found) > 20 else "")
+                raise HTTPException(503, f"{len(found)} stored rows don't fit the catalog: {shown}")
+            await check.sync(session)
+            await session.commit()
+            app.state.catalog_checked = True
     except OperationalError as e:
         raise HTTPException(503, "the database doesn't answer") from e
     return Health()
@@ -128,7 +126,7 @@ class Catalog(BaseModel):
 
 
 @v1.get("/catalog", tags=["catalog"], operation_id="get_catalog", status_code=200, response_model_by_alias=True)
-def get_catalog(_: Reader) -> Catalog:
+async def get_catalog(_: Reader) -> Catalog:
     """Every item and relation type.
 
     For each: description, key pattern (items), allowed ends (relations), and the JSON Schema of its attributes - each
