@@ -125,6 +125,20 @@ def test_thirty_days_unseen_does_go_to_anubis(db: Engine) -> None:
     assert summary.for_anubis == ["device a4:5e:60:12:34:56"]
 
 
+def test_a_link_seen_again_is_the_same_row_and_a_changed_value_updates_it(client: TestClient, db: Engine) -> None:
+    put(client, "host-scan", "clockmost-desktop", DESKTOP)
+    put(client, "r7000-scan", "all", LAN)
+    link(client, "r7000-scan", "all", rel("attached-to", DESKTOP, LAN, ip="192.168.10.74"))
+    [first] = relations(db)
+    same = link(client, "r7000-scan", "all", rel("attached-to", DESKTOP, LAN, ip="192.168.10.74")).json()
+    assert (same["created"], same["changed"], same["unchanged"]) == (0, 0, 1)
+    moved = link(client, "r7000-scan", "all", rel("attached-to", DESKTOP, LAN, ip="192.168.10.75")).json()
+    assert (moved["created"], moved["changed"], moved["unchanged"]) == (0, 1, 0)
+    [row] = relations(db)  # still the one row, now with the new value
+    assert (row.id, row.attributes["ip"]) == (first.id, "192.168.10.75")
+    assert row.last_seen > first.last_seen
+
+
 def test_ready_checks_links_too(client: TestClient) -> None:
     put(client, "host-scan", "clockmost-desktop", DESKTOP, BENYLIN, WHEEL)
     link(client, "host-scan", "clockmost-desktop", MEMBER)
