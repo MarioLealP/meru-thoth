@@ -4,7 +4,8 @@
   scope, a field the source doesn't own, or a field it owns but didn't send (= the scanner broke, D51), or a new item
   of a type the source may only confirm (D100).
 - New things become items (planned when Shikigami declares them, active when anything else sees them). The first
-  source to report an item owns its name.
+  source to report an item owns its name. A seen item whose source sends `running: false` is stopped instead of
+  active (an app scaled to 0 on purpose).
 - Each source's slice is stored per scope; the item's attributes are the slices merged by field precedence.
 - Things this source + scope reported before but not in this scan get a miss; enough misses (or, for types that come
   and go, enough time unseen) put them on Anubis's list. Scanners never set missing or retired (D53).
@@ -150,7 +151,7 @@ def _new_item(r: ReportedItem, source: Source, now: datetime, declaring: bool) -
 
 
 def _seen_again(item: Item, r: ReportedItem, source: Source, now: datetime, declaring: bool) -> None:
-    seen(item, declaring)
+    seen(item, declaring, r.attributes.get("running"))
     if item.source == source:
         item.name = r.name
     if not declaring:

@@ -9,7 +9,7 @@ descriptions. A breaking change needs a data migration (or a reason it doesn't),
 from typing import Any
 
 # Schema keywords that describe a field without constraining its data.
-_NOT_SHAPE = {"description", "title", "examples", "default", "x-owners"}
+_NOT_SHAPE = {"description", "title", "examples", "default", "x-owners", "x-lenient"}
 
 
 def breaking_changes(old: dict[str, Any], new: dict[str, Any]) -> list[str]:

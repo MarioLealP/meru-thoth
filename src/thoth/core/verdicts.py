@@ -1,8 +1,8 @@
 """Anubis's side of Thoth (D53, D85, D117, D118): what scanners stopped seeing, and the verdicts on it.
 
 The unseen queue: an item an active source + scope has gone without for 3 scans (or, for a type that comes and goes,
-for its `missing_after`) while the item is still active or missing - a retiring app's absence is expected, so it isn't
-queued. Anubis checks each one directly before a verdict.
+for its `missing_after`) while the item is still active, stopped or missing - a retiring app's absence is expected,
+so it isn't queued. Anubis checks each one directly before a verdict.
 
 A verdict is this one verb, needing thoth.verdict - and the database refuses `retired` without the flag that permission
 sets. `missing`: gone, but a request still declares it. `retired`: gone for good, its links with it; or a retained app
@@ -21,11 +21,11 @@ from thoth.db.session import write_as
 from thoth.models import Item, ItemObservation, Relation, Status
 from thoth.snapshots.common import due_for_anubis
 
-QUEUED = (Status.ACTIVE, Status.MISSING)
+QUEUED = (Status.ACTIVE, Status.STOPPED, Status.MISSING)
 # What each verdict may be given on.
 FROM: dict[Status, set[Status]] = {
-    Status.MISSING: {Status.ACTIVE},
-    Status.RETIRED: {Status.ACTIVE, Status.MISSING, Status.RETAINED},
+    Status.MISSING: {Status.ACTIVE, Status.STOPPED},
+    Status.RETIRED: {Status.ACTIVE, Status.STOPPED, Status.MISSING, Status.RETAINED},
 }
 
 

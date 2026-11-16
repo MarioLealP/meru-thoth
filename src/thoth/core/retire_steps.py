@@ -21,12 +21,18 @@ from thoth.models import Item, Status
 
 # What each step may start from: the one before it, or itself (a retried step).
 FROM: dict[Status, set[Status]] = {
-    Status.DECOMMISSIONING: {Status.PLANNED, Status.ACTIVE, Status.MISSING, Status.DECOMMISSIONING},
+    Status.DECOMMISSIONING: {
+        Status.PLANNED,
+        Status.ACTIVE,
+        Status.STOPPED,
+        Status.MISSING,
+        Status.DECOMMISSIONING,
+    },
     Status.RETAINED: {Status.DECOMMISSIONING, Status.RETAINED},
     Status.PLANNED: {Status.DECOMMISSIONING, Status.RETAINED, Status.PLANNED},  # a restore (D106)
 }
 # Already back: a retried restore after a scan saw the app again is answered as it is.
-RESTORED = {Status.ACTIVE, Status.MISSING}
+RESTORED = {Status.ACTIVE, Status.STOPPED, Status.MISSING}
 
 
 class RetireStep(BaseModel):

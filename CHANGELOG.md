@@ -7,6 +7,11 @@ All notable changes to Thoth. Format: [Keep a Changelog](https://keepachangelog.
 
 ### Added
 
+- Status `stopped`: an app seen but off on purpose (scaled to 0, e.g. a game server between sessions). The cluster
+  scan sends `running: false` on the app; `running: true` or `null` keeps it active. A stopped app is present - not
+  onboarding, not missing - can go missing or retired when it vanishes, and the retire pass can take it down.
+- Lenient catalog fields (`owned_by(..., lenient=True)`): a new field a scan may still leave out, so a scanner and Thoth
+  can ship in either order. `app.running` is the first.
 - Data model: item and relation types (the catalog), items, relations, per-source observations.
 - Change tracking in the database: every write names an actor and a reason, every real change keeps the previous
   version in a history table, history is append-only, and nothing is deleted outside the yearly purge.
