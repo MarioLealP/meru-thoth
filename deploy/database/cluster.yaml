@@ -5,7 +5,7 @@
 # - thoth_app: what the running app logs in as - rows only, never history or schema (src/thoth/db/grants.py; its
 #   first migration with grants creates the role NOLOGIN if CNPG hasn't yet). Its password is the basic-auth Secret
 #   thoth-db-runtime, filled by ESO from OpenBao (deploy/values.yaml externalSecrets).
-# Backups: the server's nightly full backup dumps every CNPG cluster. No superuser login.
+# Backups: the server's nightly full backup dumps every CNPG cluster. Plus WAL archiving + weekly base backups (backup.yaml). No superuser login.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
@@ -15,6 +15,13 @@ metadata:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
   instances: 1
+  # WAL archive + base backups into Meru/garage (backup.yaml beside this file). Restore: workspace runbook
+  # meru-external-audit-2026-11.md, P4.
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: backups
   # Postgres 16, as Temporal's; Thoth's CI tests against the same major (postgres:16.15).
   imageName: ghcr.io/cloudnative-pg/postgresql:16.15-202610260820-minimal-trixie@sha256:fc189febbe8c683dcf7399b93d25af3ad7a4d74c061875db300c41f0ad85f77a
   inheritedMetadata:
