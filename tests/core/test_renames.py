@@ -56,3 +56,20 @@ async def test_refusals(client: AsyncClient) -> None:
         response = await rename(client, headers)
         assert response.status_code == 403
         assert "needs thoth.manual, or to report as host-scan" in response.json()["detail"]
+
+
+async def test_the_same_rename_twice_returns_the_item(client: AsyncClient, db: AsyncEngine) -> None:
+    await put(client, "host-scan", "clockmost-desktop", DESKTOP)
+    first = await rename(client)
+    again = await rename(client)
+    assert (first.status_code, again.status_code) == (200, 200), again.text
+    assert again.json() == first.json()
+    assert len(await history(db, await item(db, "host", "battlestation"))) == 1  # no second version written
+
+
+async def test_a_repeat_by_another_caller_is_still_refused(client: AsyncClient) -> None:
+    await put(client, "host-scan", "clockmost-desktop", DESKTOP)
+    await rename(client)
+    assert (await rename(client, bearer(READ))).status_code == 403
+    await put(client, "host-scan", "clockmost-desktop", DESKTOP)  # something by the old name exists again
+    assert (await rename(client)).status_code == 409
