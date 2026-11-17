@@ -4,7 +4,7 @@ Every write transaction must say who is writing and why. The history trigger (th
 transaction-local settings and refuses the write without them, so a change can't land unexplained.
 """
 
-from sqlalchemy import text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -29,9 +29,10 @@ async def write_as(
     # Not session.exec: that autoflushes, writing pending changes *before* the context is set - the trigger
     # would refuse them. Call it first in the transaction, or right after a commit.
     await (await session.connection()).execute(
-        text(
-            "select set_config('thoth.actor', :actor, true), set_config('thoth.reason', :reason, true),"
-            " set_config('thoth.verdict', :verdict, true), set_config('thoth.retire', :retire, true)"
-        ),
-        {"actor": actor, "reason": reason, "verdict": "on" if verdict else "off", "retire": "on" if retire else "off"},
+        select(
+            func.set_config("thoth.actor", actor, True),
+            func.set_config("thoth.reason", reason, True),
+            func.set_config("thoth.verdict", "on" if verdict else "off", True),
+            func.set_config("thoth.retire", "on" if retire else "off", True),
+        )
     )

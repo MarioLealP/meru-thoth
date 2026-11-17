@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import text
+from sqlalchemy import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from thoth.catalog.base import Spec
@@ -65,7 +65,7 @@ async def begin(session: AsyncSession, actor: str, source: str, scope: str, kind
     """Who and why for the trigger; one snapshot per source + scope + kind at a time."""
     await write_as(session, actor, f"snapshot from {source}@{scope}")
     await (await session.connection()).execute(
-        text("select pg_advisory_xact_lock(hashtext(:k))"), {"k": f"{kind}:{source}@{scope}"}
+        select(func.pg_advisory_xact_lock(func.hashtext(f"{kind}:{source}@{scope}")))
     )
 
 
