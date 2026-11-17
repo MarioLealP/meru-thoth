@@ -40,6 +40,11 @@ app = FastAPI(
         {"name": "verdicts", "description": "What scanners stopped seeing, and Anubis's verdicts on it."},
     ],
     responses={"default": problems.PROBLEM_RESPONSE},
+    # The contract is the committed openapi.json (scripts/generate.py still builds it with app.openapi()): the running
+    # service publishes no docs page and no schema of its own.
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 problems.install(app)
 app.state.catalog_checked = False
