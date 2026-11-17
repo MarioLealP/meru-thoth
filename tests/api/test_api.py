@@ -23,3 +23,9 @@ async def test_errors_are_problem_details(client: AsyncClient) -> None:
     assert response.status_code == 404
     assert response.headers["content-type"] == "application/problem+json"
     assert response.json() == {"type": "about:blank", "title": "Not Found", "status": 404, "detail": "Not Found"}
+
+
+@pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
+async def test_interactive_docs_are_not_served(client: AsyncClient, path: str) -> None:
+    # The contract is the committed openapi.json; the running service doesn't publish its own copy.
+    assert (await client.get(path)).status_code == 404
