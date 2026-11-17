@@ -6,7 +6,7 @@ from typing import Any
 import sentry_sdk
 from fastapi import APIRouter, FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
-from sqlalchemy import text
+from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 
 from thoth import catalog
@@ -71,7 +71,7 @@ async def ready(session: SessionDep) -> Health:
     goes live, and the old one keeps serving.
     """
     try:
-        await (await session.connection()).execute(text("select 1"))
+        await (await session.connection()).execute(select(1))
         if not app.state.catalog_checked:
             if found := await check.problems(session):
                 shown = "; ".join(found[:20]) + (f"; and {len(found) - 20} more" if len(found) > 20 else "")

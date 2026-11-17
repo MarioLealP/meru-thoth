@@ -6,13 +6,13 @@ name still exists.
 """
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from thoth.catalog import ITEMS
 from thoth.core.auth import MANUAL, Caller
 from thoth.db.session import write_as
-from thoth.models import Item, Status
+from thoth.models import Item, ItemHistory, Status
 
 
 class Rename(BaseModel):
@@ -35,6 +35,22 @@ class RenameRefusedError(Exception):
         self.status, self.detail = status, detail
 
 
+def _check_caller(caller: Caller, item: Item) -> None:
+    if not (caller.may(MANUAL) or caller.reports_as(item.source)):
+        raise RenameRefusedError(403, f"needs {MANUAL}, or to report as {item.source} (which reported it first)")
+
+
+async def _already_renamed(session: AsyncSession, request: Rename) -> Item | None:
+    """The item this same request renamed earlier, so sending it again is not an error (idempotent writes)."""
+    return (
+        await session.exec(
+            select(Item)
+            .join(ItemHistory, col(ItemHistory.id) == col(Item.id))
+            .where(Item.type == request.type, Item.key == request.new_key, ItemHistory.key == request.key)
+        )
+    ).first()
+
+
 async def rename(session: AsyncSession, request: Rename, caller: Caller) -> Item:
     """Give an item a new key and flush it; the caller commits."""
     spec = ITEMS.get(request.type)
@@ -44,9 +60,12 @@ async def rename(session: AsyncSession, request: Rename, caller: Caller) -> Item
         raise RenameRefusedError(422, f"{request.new_key} doesn't match {spec.key_pattern}")
     item = (await session.exec(select(Item).where(Item.type == request.type, Item.key == request.key))).first()
     if item is None:
-        raise RenameRefusedError(404, f"no {request.type} {request.key}")
-    if not (caller.may(MANUAL) or caller.reports_as(item.source)):
-        raise RenameRefusedError(403, f"needs {MANUAL}, or to report as {item.source} (which reported it first)")
+        done = await _already_renamed(session, request)
+        if done is None:
+            raise RenameRefusedError(404, f"no {request.type} {request.key}")
+        _check_caller(caller, done)
+        return done
+    _check_caller(caller, item)
     if item.status == Status.RETIRED:
         raise RenameRefusedError(409, f"{request.type} {request.key} is retired")
     if (await session.exec(select(Item).where(Item.type == request.type, Item.key == request.new_key))).first():
